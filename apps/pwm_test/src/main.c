@@ -25,13 +25,38 @@
 struct pwm_dev *pwm;
 uint16_t max_val;
 
+/* static float R; */
+/* const int n_intervals = 200; */
+static int16_t interval = 0;
+static bool up = true;
+
+static void pwm_handler()
+{
+    /* uint8_t new_duty_cycle; */
+
+    if(interval <= max_val && interval >= 0)
+    {
+        /* new_duty_cycle = pow (2, (interval / R)) - 1; */
+        /* err_code = low_power_pwm_duty_set(pwm_instance, new_duty_cycle); */
+        /* APP_ERROR_CHECK(err_code); */
+        interval += (up) ? 1 : -1;
+    }
+    else
+    {
+        interval += (up) ? -1 : 1;
+        up = ! up;
+    }
+    /* new_duty_cycle = interval; */
+    /* pwm_enable_duty_cycle(pwm, 0, new_duty_cycle); */
+}
+
 int
 main(int argc, char **argv)
 {
     struct pwm_chan_cfg chan_conf = {
         .pin = LED_1,
         .inverted = true,
-        .data = NULL
+        .data = pwm_handler
     };
     uint32_t base_freq;
 
@@ -44,24 +69,26 @@ main(int argc, char **argv)
     base_freq = pwm_get_clock_freq(pwm);
     max_val = (uint16_t) (base_freq / 10000);
 
+    /* R = (max_val * log10(2))/(log10(255)); */
+
     /* setup led 1 - 100% duty cycle*/
     pwm_chan_config(pwm, 0, &chan_conf);
     pwm_enable_duty_cycle(pwm, 0, max_val);
 
-    /* setup led 2 - 50% duty cycle */
-    chan_conf.pin = LED_2;
-    pwm_chan_config(pwm, 1, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 1, max_val/2);
+    /* /\* setup led 2 - 50% duty cycle *\/ */
+    /* chan_conf.pin = LED_2; */
+    /* pwm_chan_config(pwm, 1, &chan_conf); */
+    /* pwm_enable_duty_cycle(pwm, 1, max_val/2); */
 
-    /* setup led 3 - 25% duty cycle */
-    chan_conf.pin = LED_3;
-    pwm_chan_config(pwm, 2, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 2, max_val/4);
+    /* /\* setup led 3 - 25% duty cycle *\/ */
+    /* chan_conf.pin = LED_3; */
+    /* pwm_chan_config(pwm, 2, &chan_conf); */
+    /* pwm_enable_duty_cycle(pwm, 2, max_val/4); */
 
-    /* setup led 4 - 10% duty cycle */
-    chan_conf.pin = LED_4;
-    pwm_chan_config(pwm, 3, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 3, max_val/10);
+    /* /\* setup led 4 - 10% duty cycle *\/ */
+    /* chan_conf.pin = LED_4; */
+    /* pwm_chan_config(pwm, 3, &chan_conf); */
+    /* pwm_enable_duty_cycle(pwm, 3, max_val/10); */
 
     while (1) {
         os_eventq_run(os_eventq_dflt_get());
