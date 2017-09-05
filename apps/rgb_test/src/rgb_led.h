@@ -27,17 +27,16 @@ extern "C" {
 #endif
 
 struct rgb_led {
-    struct pwm_dev *dev_r;
-    struct pwm_dev *dev_g;
-    struct pwm_dev *dev_b;
+    struct pwm_dev *dev;
+    uint16_t top_val;
     uint8_t r_chan;
     uint8_t g_chan;
     uint8_t b_chan;
     uint8_t mode;
-    uint8_t r_val;
-    uint8_t g_val;
-    uint8_t g_val;
-};
+    uint16_t r_val;
+    uint16_t g_val;
+    uint16_t g_val;
+} rgb_led_t;
 
 /**
  * Initialize an RGB LED in a single device setup.
@@ -50,26 +49,26 @@ struct rgb_led {
  *
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
-struct rgb_led init_rgb_led_single_dev(pwm_dev *dev,
-                                       uint8_t r_chan,
-                                       uint8_t g_chan,
-                                       uint8_t b_chan);
+rgb_led_t* init_rgb_led(pwm_dev *dev,
+                        uint8_t r_chan,
+                        uint8_t g_chan,
+                        uint8_t b_chan);
 
-/**
- * Initialize an RGB LED in a single channel setup.
- * (one channel per device)
- *
- * @param r_dev The device for the red component. (Previously configured)
- * @param g_dev The device for the green component. (Previously configured)
- * @param g_dev The device for the blue component. (Previously configured)
- * @param chan The channel number to be used on each device.
- *
- * @return the address of the rgb_led structure on success, NULL on failure.
- */
-struct rgb_led init_rgb_led_single_chan(struct pwm_dev *r_dev,
-                                        struct pwm_dev *g_dev,
-                                        struct pwm_dev *b_dev,
-                                        uint8_t chan);
+/* /\** */
+/*  * Initialize an RGB LED in a single channel setup. */
+/*  * (one channel per device) */
+/*  * */
+/*  * @param r_dev The device for the red component. (Previously configured) */
+/*  * @param g_dev The device for the green component. (Previously configured) */
+/*  * @param g_dev The device for the blue component. (Previously configured) */
+/*  * @param chan The channel number to be used on each device. */
+/*  * */
+/*  * @return the address of the rgb_led structure on success, NULL on failure. */
+/*  *\/ */
+/* struct rgb_led init_rgb_led_single_chan(struct pwm_dev *r_dev, */
+/*                                         struct pwm_dev *g_dev, */
+/*                                         struct pwm_dev *b_dev, */
+/*                                         uint8_t chan); */
 
 /**
  * Set the RGB LED mode to Constant.
@@ -82,11 +81,26 @@ struct rgb_led init_rgb_led_single_chan(struct pwm_dev *r_dev,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_constant(struct rgb_led,
+int rgb_led_set_color(struct rgb_led,
                          uint8_t r_val,
                          uint8_t g_val,
                          uint8_t g_val);
 
+/**
+ * Set the RGB LED mode to Constant.
+ * (one channel per device)
+ *
+ * @param les The RGB LED to configure.
+ * @param r_val The color value for the red component.
+ * @param g_val The color value for the green component.
+ * @param g_val The color value for the blue component.
+ *
+ * @return 0 on success, negative on error.
+ */
+int rgb_fade_to_color(struct rgb_led,
+                      uint8_t r_val,
+                      uint8_t g_val,
+                      uint8_t g_val);
 /**
  * Set the RGB LED mode to Breathe.
  *
@@ -98,11 +112,11 @@ int rgb_led_set_constant(struct rgb_led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_breathe(struct rgb_led,
-                        uint32_t interval,
-                        uint8_t r_val,
-                        uint8_t g_val,
-                        uint8_t g_val);
+int rgb_led_breathe(struct rgb_led,
+                    uint32_t interval,
+                    uint8_t r_val,
+                    uint8_t g_val,
+                    uint8_t g_val);
 
 /**
  * Set the RGB LED mode to Off.
