@@ -16,52 +16,50 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+#include "syscfg/syscfg.h"
 #include "sysinit/sysinit.h"
 #include <os/os.h>
 #include <pwm/pwm.h>
-#include <pwm_nrf52/pwm_nrf52.h>
 #include <bsp/bsp.h>
 
-static struct os_dev dev;
-int arg = 0;
+#include "rgb_led.h"
+
 struct pwm_dev *pwm;
-static int value = 10000;
+uint16_t top_val;
 
 int
 main(int argc, char **argv)
 {
+    struct pwm_chan_cfg chan_conf = {
+        .pin = LED_1,
+        .inverted = true,
+        .data = NULL
+    };
+    uint32_t base_freq;
+    rgb_led_t* led1;
+
     sysinit();
 
-    struct nrf52_pwm_chan_cfg chan_conf = {
-        .pin = LED_1,
-        .inverted = true
-    };
+    pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
 
-    os_dev_create(&dev,
-                  "pwm",
-                  OS_DEV_INIT_KERNEL,
-                  OS_DEV_INIT_PRIO_DEFAULT,
-                  nrf52_pwm_dev_init,
-                  NULL);
-    pwm = (struct pwm_dev *) os_dev_open("pwm", 0, NULL);
+    /* set the PWM frequency */
+    pwm_set_frequency(pwm, 10000);
+    base_freq = pwm_get_clock_freq(pwm);
+    top_val = (uint16_t) (base_freq / 10000);
 
+    /* setup red channel */
     pwm_chan_config(pwm, 0, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 0, 10000);
 
+    /* setup green channel */
     chan_conf.pin = LED_2;
     pwm_chan_config(pwm, 1, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 1, value/10);
 
-    //changing frequency while playing
-    pwm_set_frequency(pwm, 2000000);
-
+    /* setup blue channel */
     chan_conf.pin = LED_3;
     pwm_chan_config(pwm, 2, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 2, value/100);
 
-    chan_conf.pin = LED_4;
-    pwm_chan_config(pwm, 3, &chan_conf);
-    pwm_enable_duty_cycle(pwm, 3, value/1000);
+    led1 = init_rgb_led(pwm, top_val, 0, 1, 2);
+    rgb_led_set_color(led1, 255, 255, 255);
 
     while (1) {
         os_eventq_run(os_eventq_dflt_get());
