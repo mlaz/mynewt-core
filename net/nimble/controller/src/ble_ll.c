@@ -187,6 +187,7 @@ STATS_NAME_START(ble_ll_stats)
     STATS_NAME(ble_ll_stats, aux_received)
     STATS_NAME(ble_ll_stats, aux_fired_for_read)
     STATS_NAME(ble_ll_stats, aux_conn_req_tx)
+    STATS_NAME(ble_ll_stats, aux_conn_rsp_tx)
     STATS_NAME(ble_ll_stats, aux_conn_rsp_err)
     STATS_NAME(ble_ll_stats, aux_scan_req_tx)
     STATS_NAME(ble_ll_stats, aux_scan_rsp_err)
@@ -561,7 +562,7 @@ ble_ll_wfr_timer_exp(void *arg)
             ble_ll_scan_wfr_timer_exp();
             break;
         case BLE_LL_STATE_INITIATING:
-            ble_ll_conn_init_wrf_timer_exp();
+            ble_ll_conn_init_wfr_timer_exp();
             break;
         default:
             break;
@@ -1195,6 +1196,9 @@ ble_ll_reset(void)
     /* All this does is re-initialize the event masks so call the hci init */
     ble_ll_hci_init();
 
+    /* Reset scheduler */
+    ble_ll_sched_init();
+
     /* Set state to standby */
     ble_ll_state_set(BLE_LL_STATE_STANDBY);
 
@@ -1237,12 +1241,12 @@ ble_ll_seed_prng(void)
     srand(seed);
 }
 
-#if (MYNEWT_VAL(BLE_LL_CFG_FEAT_LE_2M_PHY) || MYNEWT_VAL(BLE_LL_CFG_FEAT_LE_CODED_PHY))
 uint32_t
 ble_ll_pdu_tx_time_get(uint16_t payload_len, int phy_mode)
 {
     uint32_t usecs;
 
+#if (BLE_LL_BT5_PHY_SUPPORTED)
     if (phy_mode == BLE_PHY_MODE_1M) {
         /* 8 usecs per byte */
         usecs = payload_len << 3;
@@ -1260,11 +1264,13 @@ ble_ll_pdu_tx_time_get(uint16_t payload_len, int phy_mode)
     }
 
     usecs += g_ble_ll_pdu_header_tx_time[phy_mode];
+#else
+    usecs = (((payload_len) + BLE_LL_PDU_HDR_LEN + BLE_LL_ACC_ADDR_LEN
+            + BLE_LL_PREAMBLE_LEN + BLE_LL_CRC_LEN) << 3);
+#endif
 
     return usecs;
-
 }
-#endif
 
 uint16_t
 ble_ll_pdu_max_tx_octets_get(uint32_t usecs, int phy_mode)
