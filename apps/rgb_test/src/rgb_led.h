@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-struct rgb_led {
+typedef struct rgb_led {
     struct pwm_dev *dev;
     uint16_t top_val;
     uint8_t r_chan;
@@ -35,7 +35,7 @@ struct rgb_led {
     uint8_t mode;
     uint16_t r_val;
     uint16_t g_val;
-    uint16_t g_val;
+    uint16_t b_val;
 } rgb_led_t;
 
 /**
@@ -49,7 +49,8 @@ struct rgb_led {
  *
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
-rgb_led_t* init_rgb_led(pwm_dev *dev,
+rgb_led_t* init_rgb_led(struct pwm_dev *dev,
+                        uint16_t top_val,
                         uint8_t r_chan,
                         uint8_t g_chan,
                         uint8_t b_chan);
@@ -65,7 +66,7 @@ rgb_led_t* init_rgb_led(pwm_dev *dev,
 /*  * */
 /*  * @return the address of the rgb_led structure on success, NULL on failure. */
 /*  *\/ */
-/* struct rgb_led init_rgb_led_single_chan(struct pwm_dev *r_dev, */
+/* rgb_led_t init_rgb_led_single_chan(struct pwm_dev *r_dev, */
 /*                                         struct pwm_dev *g_dev, */
 /*                                         struct pwm_dev *b_dev, */
 /*                                         uint8_t chan); */
@@ -81,10 +82,10 @@ rgb_led_t* init_rgb_led(pwm_dev *dev,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_color(struct rgb_led,
-                         uint8_t r_val,
-                         uint8_t g_val,
-                         uint8_t g_val);
+int rgb_led_set_color(rgb_led_t* led,
+                      uint8_t r_val,
+                      uint8_t g_val,
+                      uint8_t b_val);
 
 /**
  * Set the RGB LED mode to Constant.
@@ -97,10 +98,10 @@ int rgb_led_set_color(struct rgb_led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_fade_to_color(struct rgb_led,
+int rgb_fade_to_color(rgb_led_t* led,
                       uint8_t r_val,
                       uint8_t g_val,
-                      uint8_t g_val);
+                      uint8_t b_val);
 /**
  * Set the RGB LED mode to Breathe.
  *
@@ -112,11 +113,8 @@ int rgb_fade_to_color(struct rgb_led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_breathe(struct rgb_led,
-                    uint32_t interval,
-                    uint8_t r_val,
-                    uint8_t g_val,
-                    uint8_t g_val);
+int rgb_led_breathe(rgb_led_t* led,
+                    uint32_t interval);
 
 /**
  * Set the RGB LED mode to Off.
@@ -125,7 +123,7 @@ int rgb_led_breathe(struct rgb_led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_off(struct rgb_led);
+int rgb_led_set_off(rgb_led_t* led);
 
 #ifdef __cplusplus
 }

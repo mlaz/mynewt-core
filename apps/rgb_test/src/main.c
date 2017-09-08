@@ -31,8 +31,8 @@ int
 main(int argc, char **argv)
 {
     struct pwm_chan_cfg chan_conf = {
-        .pin = LED_1,
-        .inverted = true,
+        .pin = 11,
+        .inverted = false,
         .data = NULL
     };
     uint32_t base_freq;
@@ -43,23 +43,24 @@ main(int argc, char **argv)
     pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
 
     /* set the PWM frequency */
-    pwm_set_frequency(pwm, 10000);
+    pwm_set_frequency(pwm, 1000);
     base_freq = pwm_get_clock_freq(pwm);
-    top_val = (uint16_t) (base_freq / 10000);
+    top_val = (uint16_t) (base_freq / 1000);
 
     /* setup red channel */
     pwm_chan_config(pwm, 0, &chan_conf);
 
     /* setup green channel */
-    chan_conf.pin = LED_2;
+    chan_conf.pin = 12;
     pwm_chan_config(pwm, 1, &chan_conf);
 
     /* setup blue channel */
-    chan_conf.pin = LED_3;
+    chan_conf.pin = 13;
     pwm_chan_config(pwm, 2, &chan_conf);
 
     led1 = init_rgb_led(pwm, top_val, 0, 1, 2);
-    rgb_led_set_color(led1, 255, 255, 255);
+    rgb_led_set_color(led1, 127, 30, 127);
+    /* rgb_led_set_off(led1); */
 
     while (1) {
         os_eventq_run(os_eventq_dflt_get());
