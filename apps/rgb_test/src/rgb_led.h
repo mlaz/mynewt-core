@@ -28,14 +28,19 @@ extern "C" {
 
 typedef struct rgb_led {
     struct pwm_dev *dev;
-    uint16_t top_val;
-    uint8_t r_chan;
-    uint8_t g_chan;
-    uint8_t b_chan;
-    uint8_t mode;
-    uint16_t r_val;
-    uint16_t g_val;
-    uint16_t b_val;
+    struct os_callout_func *g_rgbled_breathe;
+    struct os_callout_func *g_rgbled_fade;
+    uint16_t top_val; /* PWM maximum value */
+    uint8_t r_chan; /* Red channel number. */
+    uint8_t g_chan; /* Green channel number. */
+    uint8_t b_chan; /* Blue channel number. */
+    uint16_t r_val; /* Red component value. */
+    uint16_t g_val; /* Green component value. */
+    uint16_t b_val; /* Blue component value. */
+    uint8_t mode; /* may be either FIXED, FADE or BREATHE*/
+    uint16_t r_fade; /* Red component value for fading. */
+    uint16_t g_fade; /* Green component value for fading. */
+    uint16_t b_fade; /* Blue component value for fading. */
 } rgb_led_t;
 
 /**
@@ -54,22 +59,6 @@ rgb_led_t* init_rgb_led(struct pwm_dev *dev,
                         uint8_t r_chan,
                         uint8_t g_chan,
                         uint8_t b_chan);
-
-/* /\** */
-/*  * Initialize an RGB LED in a single channel setup. */
-/*  * (one channel per device) */
-/*  * */
-/*  * @param r_dev The device for the red component. (Previously configured) */
-/*  * @param g_dev The device for the green component. (Previously configured) */
-/*  * @param g_dev The device for the blue component. (Previously configured) */
-/*  * @param chan The channel number to be used on each device. */
-/*  * */
-/*  * @return the address of the rgb_led structure on success, NULL on failure. */
-/*  *\/ */
-/* rgb_led_t init_rgb_led_single_chan(struct pwm_dev *r_dev, */
-/*                                         struct pwm_dev *g_dev, */
-/*                                         struct pwm_dev *b_dev, */
-/*                                         uint8_t chan); */
 
 /**
  * Set the RGB LED mode to Constant.

@@ -1,6 +1,10 @@
 #include "rgb_led.h"
 #include <pwm/pwm.h>
 
+#include "os/os.h"
+
+struct os_eventq g_rgbled_evq;
+
 /**
  * Initialize an RGB LED in a single device setup.
  * (multiple channels per device)
@@ -12,11 +16,12 @@
  *
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
-rgb_led_t* init_rgb_led(struct pwm_dev *dev,
-                        uint16_t top_val,
-                        uint8_t r_chan,
-                        uint8_t g_chan,
-                        uint8_t b_chan)
+rgb_led_t*
+init_rgb_led(struct pwm_dev *dev,
+             uint16_t top_val,
+             uint8_t r_chan,
+             uint8_t g_chan,
+             uint8_t b_chan)
 {
     if (dev == NULL) {
         return NULL;
@@ -28,6 +33,15 @@ rgb_led_t* init_rgb_led(struct pwm_dev *dev,
     led->r_chan = r_chan;
     led->g_chan = g_chan;
     led->b_chan = b_chan;
+
+    os_callout_function_init(led->g_rgbled_breathe,
+                             &g_rgbled_evq,
+                             breathe_cb,
+                             led);
+    os_callout_function_init(led->g_rgbled_fade,
+                             &g_rgbled_evq,
+                             fade_cb,
+                             led);
     return led;
 }
 
@@ -38,7 +52,6 @@ static uint16_t cvt_color_duty(uint8_t color, uint16_t top_val)
 
 /**
  * Set the RGB LED mode to Constant.
- * (one channel per device)
  *
  * @param rgb_led The RGB LED to configure.
  * @param r_val The color value for the red component.
@@ -47,10 +60,11 @@ static uint16_t cvt_color_duty(uint8_t color, uint16_t top_val)
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_color(rgb_led_t *led,
-                      uint8_t r_val,
-                      uint8_t g_val,
-                      uint8_t b_val)
+int
+rgb_led_set_color(rgb_led_t *led,
+                  uint8_t r_val,
+                  uint8_t g_val,
+                  uint8_t b_val)
 {
     led->r_val = cvt_color_duty(r_val, led->top_val);
     led->g_val = cvt_color_duty(g_val, led->top_val);
@@ -71,14 +85,24 @@ int rgb_led_set_color(rgb_led_t *led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_webcolor(rgb_led_t *led,
-                          uint32_t color)
+int
+rgb_led_set_webcolor(rgb_led_t *led, uint32_t color)
 {
     rgb_led_set_color(led,
                       (uint8_t) ((color & 0xFF0000) >> 16),
                       (uint8_t) (color & 0x00FF00) >> 8,
                       (uint8_t) (color & 0x0000FF));
     return 0;
+}
+
+/**
+ * RGB LED fade callback.
+ */
+static void
+fade_cb(rgb_led_t *led)
+{
+
+    os_callout_reset(&g_bletest_timer, OS_TICKS_PER_SEC / 4);
 }
 
 /**
@@ -92,16 +116,37 @@ int rgb_led_set_webcolor(rgb_led_t *led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_fade_to_color(rgb_led_t *led,
-                      uint8_t r_val,
-                      uint8_t g_val,
-                      uint8_t b_val)
+int
+rgb_fade_to_color(rgb_led_t *led,
+                  uint8_t r_val,
+                  uint8_t g_val,
+                  uint8_t b_val)
 {
+    led->r_val = led->r_fade;
+    led->g_val = led->g_fade;
+    led->b_val = led->b_fade;
+
     led->r_val = cvt_color_duty(r_val, led->top_val);
     led->g_val = cvt_color_duty(g_val, led->top_val);
     led->b_val = cvt_color_duty(b_val, led->top_val);
 
+    os_callout_init(&g_rgbled_timer, &g_rgbled_evq, fade_cb, led);
     return 0;
+}
+
+/**
+ * RGB LED breathe callback.
+ */
+static void
+breathe_cb(rgb_led_t *led)
+{
+    if (led->r_fade == 0
+        || led->g_fade == 0
+        || led->b_fade == 0) {
+        return;
+    }
+
+    os_callout_reset(&g_bletest_timer, OS_TICKS_PER_SEC / 100);
 }
 
 /**
@@ -112,8 +157,9 @@ int rgb_fade_to_color(rgb_led_t *led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_breathe(rgb_led_t *led,
-                    uint32_t interval)
+int
+rgb_led_breathe(rgb_led_t *led,
+                uint32_t interval)
 {
     return (0);
 }
@@ -125,7 +171,8 @@ int rgb_led_breathe(rgb_led_t *led,
  *
  * @return 0 on success, negative on error.
  */
-int rgb_led_set_off(rgb_led_t *led)
+int
+rgb_led_set_off(rgb_led_t *led)
 {
     led->r_val = 0;
     led->g_val = 0;
