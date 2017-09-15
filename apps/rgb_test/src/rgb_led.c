@@ -1,3 +1,4 @@
+#include "sysinit/sysinit.h"
 #include "rgb_led.h"
 #include <pwm/pwm.h>
 
@@ -27,6 +28,7 @@ set_color_with_brightness(struct rgb_led *led)
 static void
 breathe_cb(struct os_event *ev)
 {
+    assert(ev != NULL);
     struct rgb_led* led = ev->ev_arg;
 
     if (led->brightness >= MAX_BNESS || led->brightness == 0) {
@@ -43,8 +45,35 @@ breathe_cb(struct os_event *ev)
 static void
 fade_cb(struct os_event *ev)
 {
-    struct rgb_led* led = ev->ev_arg;
-    os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
+    bool done = true;
+    struct rgb_led* led;
+    int16_t diff;
+
+    assert(ev != NULL);
+    led = ev->ev_arg;
+
+    diff = ((int16_t) led->r_duty) - ((int16_t) led->r_target);
+    if (diff) {
+        done = false;
+        led->r_duty += (diff < 0) ? 1 : -1;
+    }
+
+    diff = ((int16_t) led->g_duty) - ((int16_t) led->g_target);
+    if (diff) {
+        done = false;
+        led->g_duty += (diff < 0) ? 1 : -1;
+    }
+
+    diff = ((int16_t) led->b_duty) - ((int16_t) led->b_target);
+    if (diff) {
+        done = false;
+        led->b_duty += (diff < 0) ? 1 : -1;
+    }
+
+    if (!done) {
+        set_color_with_brightness(led);
+        os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
+    }
 }
 
 /**
@@ -60,11 +89,11 @@ fade_cb(struct os_event *ev)
  */
 struct rgb_led*
 init_rgb_led(struct pwm_dev *dev,
+             struct os_eventq *c_rgbled_evq,
              uint16_t top_val,
              uint8_t r_chan,
              uint8_t g_chan,
-             uint8_t b_chan,
-             struct os_eventq *c_rgbled_evq)
+             uint8_t b_chan)
 {
     if (dev == NULL) {
         return NULL;
@@ -78,6 +107,7 @@ init_rgb_led(struct pwm_dev *dev,
     led->b_chan = b_chan;
     led->brightness = 5; /* brightness defaults to 50% */
 
+    /* TODO: add some checking for a null evq pointer */
     os_callout_init(&led->c_rgbled_breathe,
                     c_rgbled_evq,
                     breathe_cb,
@@ -157,9 +187,10 @@ rgb_fade_to_color(struct rgb_led *led,
                   uint8_t g_val,
                   uint8_t b_val)
 {
-    led->r_val = (r_val * led->max_val) / 255;
-    led->g_val = (g_val * led->max_val) / 255;
-    led->b_val = (b_val * led->max_val) / 255;
+    led->interval_ticks = OS_TICKS_PER_SEC / 10; /* (interval * (OS_TICKS_PER_SEC / 1000)) / MAX_BNESS; */
+    led->r_target = (r_val * led->max_val) / 255;
+    led->g_target = (g_val * led->max_val) / 255;
+    led->b_target = (b_val * led->max_val) / 255;
 
     os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
 }
@@ -179,7 +210,6 @@ rgb_led_breathe(struct rgb_led *led, uint32_t interval)
     led->breathe_up = true;
     led->interval_ticks = OS_TICKS_PER_SEC / 10; /* (interval * (OS_TICKS_PER_SEC / 1000)) / MAX_BNESS; */
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
-    return;
 }
 
 /**
@@ -195,7 +225,6 @@ rgb_led_breathe_stop(struct rgb_led *led)
 {
     led->brightness = led->save_bness;
     os_callout_stop(&led->c_rgbled_breathe);
-    return;
 }
 
 /**

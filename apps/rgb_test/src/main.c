@@ -18,30 +18,30 @@
  */
 #include "syscfg/syscfg.h"
 #include "sysinit/sysinit.h"
-#include <os/os.h>
+#include "os/os.h"
 #include <pwm/pwm.h>
 #include <bsp/bsp.h>
 
 #include "rgb_led.h"
 
 /* Define task stack and task object */
-#define RGBLED_PRI 5 /* (OS_TASK_PRI_HIGHEST) */
-#define RGBLED_SIZE (128)
+#define RGBLED_PRI (OS_TASK_PRI_HIGHEST)
+#define RGBLED_SIZE (512)
 struct os_task rgbled_task;
 os_stack_t rgbled_stack[RGBLED_SIZE];
 
 struct os_eventq c_rgbled_evq;
 struct pwm_dev *pwm;
 uint16_t top_val;
-struct rgb_led* led1;
 
 void
 rgbled_task_handler(void *arg)
 {
-    led1 = init_rgb_led(pwm, top_val, 0, 1, 2, &c_rgbled_evq);
+    struct rgb_led* led1;
+    led1 = init_rgb_led(pwm, &c_rgbled_evq, top_val, 0, 1, 2);
     rgb_led_set_color(led1, 127, 30, 127);
 
-    rgb_led_set_bness(led1, 1);
+    rgb_led_set_bness(led1, 5);
 
     rgb_led_breathe(led1, 2000);
 
@@ -60,6 +60,7 @@ main(int argc, char **argv)
     };
     uint32_t base_freq;
     uint32_t pwm_freq = 2000;
+    int rc;
 
     sysinit();
 
@@ -80,14 +81,16 @@ main(int argc, char **argv)
     chan_conf.pin = 13;
     pwm_chan_config(pwm, 2, &chan_conf);
 
-    os_task_init(&rgbled_task,
-                 "rgbled",
-                 rgbled_task_handler,
-                 NULL,
-                 RGBLED_PRI,
-                 OS_WAIT_FOREVER,
-                 rgbled_stack,
-                 RGBLED_SIZE);
+    os_eventq_init(&c_rgbled_evq);
+    rc = os_task_init(&rgbled_task,
+                      "rgbled",
+                      rgbled_task_handler,
+                      NULL,
+                      RGBLED_PRI,
+                      OS_WAIT_FOREVER,
+                      rgbled_stack,
+                      RGBLED_SIZE);
+    assert(rc == 0);
 
     while (1) {
        os_eventq_run(os_eventq_dflt_get());

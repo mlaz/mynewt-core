@@ -47,6 +47,9 @@ struct rgb_led {
     uint16_t r_duty; /* Red component duty cycle. */
     uint16_t g_duty; /* Green component duty cycle. */
     uint16_t b_duty; /* Blue component duty cycle. */
+    uint16_t r_target; /* Red component target duty cycle (for fading). */
+    uint16_t g_target; /* Green component target duty cycle (for fading). */
+    uint16_t b_target; /* Blue component target duty cycle (for fading). */
 };
 
 /**
@@ -61,11 +64,11 @@ struct rgb_led {
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
 struct rgb_led* init_rgb_led(struct pwm_dev *dev,
+                             struct os_eventq *c_rgbled_evq,
                              uint16_t top_val,
                              uint8_t r_chan,
                              uint8_t g_chan,
-                             uint8_t b_chan,
-                             struct os_eventq *c_rgbled_evq);
+                             uint8_t b_chan);
 
 /**
  * Set brightness level from 0 to 255.
