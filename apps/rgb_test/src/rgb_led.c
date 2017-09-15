@@ -2,8 +2,50 @@
 #include <pwm/pwm.h>
 
 #include "os/os.h"
+#include "os/os_callout.h"
 
-struct os_eventq g_rgbled_evq;
+#define MAX_BNESS 10
+
+/**
+ * Setting a configured color.
+ */
+static void
+set_color_with_brightness(struct rgb_led *led)
+{
+    led->r_duty = led->r_val * ((uint16_t) led->brightness);
+    led->g_duty = led->g_val * ((uint16_t) led->brightness);
+    led->b_duty = led->b_val * ((uint16_t) led->brightness);
+
+    pwm_enable_duty_cycle(led->dev, led->r_chan, led->r_duty);
+    pwm_enable_duty_cycle(led->dev, led->g_chan, led->g_duty);
+    pwm_enable_duty_cycle(led->dev, led->b_chan, led->b_duty);
+}
+
+/**
+ * RGB LED breathe callback.
+ */
+static void
+breathe_cb(struct os_event *ev)
+{
+    struct rgb_led* led = ev->ev_arg;
+
+    if (led->brightness >= MAX_BNESS || led->brightness == 0) {
+        led->breathe_up = ! led->breathe_up;
+    }
+    led->brightness += (led->breathe_up) ? 1 : -1;
+    set_color_with_brightness(led);
+    os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
+}
+
+/**
+ * RGB LED fade callback.
+ */
+static void
+fade_cb(struct os_event *ev)
+{
+    struct rgb_led* led = ev->ev_arg;
+    os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
+}
 
 /**
  * Initialize an RGB LED in a single device setup.
@@ -16,38 +58,48 @@ struct os_eventq g_rgbled_evq;
  *
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
-rgb_led_t*
+struct rgb_led*
 init_rgb_led(struct pwm_dev *dev,
              uint16_t top_val,
              uint8_t r_chan,
              uint8_t g_chan,
-             uint8_t b_chan)
+             uint8_t b_chan,
+             struct os_eventq *c_rgbled_evq)
 {
     if (dev == NULL) {
         return NULL;
     }
 
-    rgb_led_t* led = (rgb_led_t*) calloc(1, sizeof(rgb_led_t));
+    struct rgb_led* led = (struct rgb_led*) calloc(1, sizeof(struct rgb_led));
     led->dev = dev;
-    led->top_val = top_val;
+    led->max_val = top_val / 10;
     led->r_chan = r_chan;
     led->g_chan = g_chan;
     led->b_chan = b_chan;
+    led->brightness = 5; /* brightness defaults to 50% */
 
-    os_callout_function_init(led->g_rgbled_breathe,
-                             &g_rgbled_evq,
-                             breathe_cb,
-                             led);
-    os_callout_function_init(led->g_rgbled_fade,
-                             &g_rgbled_evq,
-                             fade_cb,
-                             led);
+    os_callout_init(&led->c_rgbled_breathe,
+                    c_rgbled_evq,
+                    breathe_cb,
+                    led);
+    os_callout_init(&led->c_rgbled_fade,
+                    c_rgbled_evq,
+                    fade_cb,
+                    led);
     return led;
 }
 
-static uint16_t cvt_color_duty(uint8_t color, uint16_t top_val)
+void
+rgb_led_set_bness(struct rgb_led *led, uint8_t bness)
 {
-    return (((uint16_t) color) * top_val) / 255;
+    led->brightness = (bness < MAX_BNESS) ? bness : MAX_BNESS;
+    set_color_with_brightness(led);
+}
+
+uint8_t
+rgb_led_get_bness(struct rgb_led *led)
+{
+    return led->brightness;
 }
 
 /**
@@ -60,20 +112,17 @@ static uint16_t cvt_color_duty(uint8_t color, uint16_t top_val)
  *
  * @return 0 on success, negative on error.
  */
-int
-rgb_led_set_color(rgb_led_t *led,
+void
+rgb_led_set_color(struct rgb_led *led,
                   uint8_t r_val,
                   uint8_t g_val,
                   uint8_t b_val)
 {
-    led->r_val = cvt_color_duty(r_val, led->top_val);
-    led->g_val = cvt_color_duty(g_val, led->top_val);
-    led->b_val = cvt_color_duty(b_val, led->top_val);
+    led->r_val = (r_val * led->max_val) / 255;
+    led->g_val = (g_val * led->max_val) / 255;
+    led->b_val = (b_val * led->max_val) / 255;
 
-    pwm_enable_duty_cycle(led->dev, led->r_chan, led->r_val);
-    pwm_enable_duty_cycle(led->dev, led->g_chan, led->g_val);
-    pwm_enable_duty_cycle(led->dev, led->b_chan, led->b_val);
-    return 0;
+    set_color_with_brightness(led);
 }
 
 /**
@@ -82,27 +131,14 @@ rgb_led_set_color(rgb_led_t *led,
  *
  * @param rgb_led The RGB LED to configure.
  * @param color The color value in the 0x00RRGGBB format.
- *
- * @return 0 on success, negative on error.
  */
-int
-rgb_led_set_webcolor(rgb_led_t *led, uint32_t color)
+void
+rgb_led_set_webcolor(struct rgb_led *led, uint32_t color)
 {
     rgb_led_set_color(led,
                       (uint8_t) ((color & 0xFF0000) >> 16),
                       (uint8_t) (color & 0x00FF00) >> 8,
                       (uint8_t) (color & 0x0000FF));
-    return 0;
-}
-
-/**
- * RGB LED fade callback.
- */
-static void
-fade_cb(rgb_led_t *led)
-{
-
-    os_callout_reset(&g_bletest_timer, OS_TICKS_PER_SEC / 4);
 }
 
 /**
@@ -113,40 +149,19 @@ fade_cb(rgb_led_t *led)
  * @param r_val The color value for the red component.
  * @param g_val The color value for the green component.
  * @param g_val The color value for the blue component.
- *
- * @return 0 on success, negative on error.
  */
-int
-rgb_fade_to_color(rgb_led_t *led,
+void
+rgb_fade_to_color(struct rgb_led *led,
+                  uint32_t interval,
                   uint8_t r_val,
                   uint8_t g_val,
                   uint8_t b_val)
 {
-    led->r_val = led->r_fade;
-    led->g_val = led->g_fade;
-    led->b_val = led->b_fade;
+    led->r_val = (r_val * led->max_val) / 255;
+    led->g_val = (g_val * led->max_val) / 255;
+    led->b_val = (b_val * led->max_val) / 255;
 
-    led->r_val = cvt_color_duty(r_val, led->top_val);
-    led->g_val = cvt_color_duty(g_val, led->top_val);
-    led->b_val = cvt_color_duty(b_val, led->top_val);
-
-    os_callout_init(&g_rgbled_timer, &g_rgbled_evq, fade_cb, led);
-    return 0;
-}
-
-/**
- * RGB LED breathe callback.
- */
-static void
-breathe_cb(rgb_led_t *led)
-{
-    if (led->r_fade == 0
-        || led->g_fade == 0
-        || led->b_fade == 0) {
-        return;
-    }
-
-    os_callout_reset(&g_bletest_timer, OS_TICKS_PER_SEC / 100);
+    os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
 }
 
 /**
@@ -157,11 +172,30 @@ breathe_cb(rgb_led_t *led)
  *
  * @return 0 on success, negative on error.
  */
-int
-rgb_led_breathe(rgb_led_t *led,
-                uint32_t interval)
+void
+rgb_led_breathe(struct rgb_led *led, uint32_t interval)
 {
-    return (0);
+    led->save_bness = led->brightness;
+    led->breathe_up = true;
+    led->interval_ticks = OS_TICKS_PER_SEC / 10; /* (interval * (OS_TICKS_PER_SEC / 1000)) / MAX_BNESS; */
+    os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
+    return;
+}
+
+/**
+ * Set the RGB LED mode to Breathe.
+ *
+ * @param dev The RGB LED device to configure.
+ * @param interval The period of the sequence.
+ *
+ * @return 0 on success, negative on error.
+ */
+void
+rgb_led_breathe_stop(struct rgb_led *led)
+{
+    led->brightness = led->save_bness;
+    os_callout_stop(&led->c_rgbled_breathe);
+    return;
 }
 
 /**
@@ -171,14 +205,11 @@ rgb_led_breathe(rgb_led_t *led,
  *
  * @return 0 on success, negative on error.
  */
-int
-rgb_led_set_off(rgb_led_t *led)
+void
+rgb_led_set_off(struct rgb_led *led)
 {
     led->r_val = 0;
     led->g_val = 0;
     led->b_val = 0;
-    pwm_enable_duty_cycle(led->dev, led->r_chan, 0);
-    pwm_enable_duty_cycle(led->dev, led->g_chan, 0);
-    pwm_enable_duty_cycle(led->dev, led->b_chan, 0);
-    return 0;
+    set_color_with_brightness(led);
 }

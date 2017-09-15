@@ -21,27 +21,33 @@
 #define RGB_LED_H
 
 #include <pwm/pwm.h>
+#include <os/os.h>
+#include "os/os_callout.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct rgb_led {
+struct rgb_led {
     struct pwm_dev *dev;
-    struct os_callout_func *g_rgbled_breathe;
-    struct os_callout_func *g_rgbled_fade;
-    uint16_t top_val; /* PWM maximum value */
+    struct os_callout c_rgbled_breathe;
+    struct os_callout c_rgbled_fade;
+    uint16_t max_val; /* Color component maximum value. */
+    uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
+    uint8_t brightness; /* Brightness level, from 0 to 100. */
+    uint8_t save_bness; /* Slot for keeping brightness level. */
+    bool breathe_up; /* Breathing up/down flag. */
+    uint32_t interval_ticks; /* Breathing/Fading interval. */
     uint8_t r_chan; /* Red channel number. */
     uint8_t g_chan; /* Green channel number. */
     uint8_t b_chan; /* Blue channel number. */
     uint16_t r_val; /* Red component value. */
     uint16_t g_val; /* Green component value. */
     uint16_t b_val; /* Blue component value. */
-    uint8_t mode; /* may be either FIXED, FADE or BREATHE*/
-    uint16_t r_fade; /* Red component value for fading. */
-    uint16_t g_fade; /* Green component value for fading. */
-    uint16_t b_fade; /* Blue component value for fading. */
-} rgb_led_t;
+    uint16_t r_duty; /* Red component duty cycle. */
+    uint16_t g_duty; /* Green component duty cycle. */
+    uint16_t b_duty; /* Blue component duty cycle. */
+};
 
 /**
  * Initialize an RGB LED in a single device setup.
@@ -54,43 +60,56 @@ typedef struct rgb_led {
  *
  * @return the address of the rgb_led structure on success, NULL on failure.
  */
-rgb_led_t* init_rgb_led(struct pwm_dev *dev,
-                        uint16_t top_val,
-                        uint8_t r_chan,
-                        uint8_t g_chan,
-                        uint8_t b_chan);
+struct rgb_led* init_rgb_led(struct pwm_dev *dev,
+                             uint16_t top_val,
+                             uint8_t r_chan,
+                             uint8_t g_chan,
+                             uint8_t b_chan,
+                             struct os_eventq *c_rgbled_evq);
 
 /**
- * Set the RGB LED mode to Constant.
- * (one channel per device)
+ * Set brightness level from 0 to 255.
  *
- * @param les The RGB LED to configure.
+ * @param led The struct rgb_led structure.
+ * @param bness The brightness level.
+ */
+void rgb_led_set_bness(struct rgb_led *led, uint8_t bness);
+
+/**
+ * Set brightness level from 0 to 255.
+ *
+ * @param led The struct rgb_led structure.
+ *
+ * @return The brightness level.
+ */
+uint8_t rgb_led_get_bness(struct rgb_led *led);
+
+/**
+ * Set the RGB LED mode to Constant using a given color.
+ *
+ * @param led The struct rgb_led structure.
+ * @param r_val The color value for the red component.
+ * @param g_val The color value for the green component.
+ * @param b_val The color value for the blue component.
+ */
+void rgb_led_set_color(struct rgb_led* led,
+                       uint8_t r_val,
+                       uint8_t g_val,
+                       uint8_t b_val);
+
+/**
+ * Fade the RGB LED to a given color.
+ *
+ * @param led The struct rgb_led structure.
  * @param r_val The color value for the red component.
  * @param g_val The color value for the green component.
  * @param g_val The color value for the blue component.
- *
- * @return 0 on success, negative on error.
  */
-int rgb_led_set_color(rgb_led_t* led,
-                      uint8_t r_val,
-                      uint8_t g_val,
-                      uint8_t b_val);
-
-/**
- * Set the RGB LED mode to Constant.
- * (one channel per device)
- *
- * @param les The RGB LED to configure.
- * @param r_val The color value for the red component.
- * @param g_val The color value for the green component.
- * @param g_val The color value for the blue component.
- *
- * @return 0 on success, negative on error.
- */
-int rgb_fade_to_color(rgb_led_t* led,
-                      uint8_t r_val,
-                      uint8_t g_val,
-                      uint8_t b_val);
+void rgb_fade_to_color(struct rgb_led* led,
+                       uint32_t interval,
+                       uint8_t r_val,
+                       uint8_t g_val,
+                       uint8_t b_val);
 /**
  * Set the RGB LED mode to Breathe.
  *
@@ -99,20 +118,22 @@ int rgb_fade_to_color(rgb_led_t* led,
  * @param r_dev The color value for the red component.
  * @param g_dev The color value for the green component.
  * @param g_dev The color value for the blue component.
- *
- * @return 0 on success, negative on error.
  */
-int rgb_led_breathe(rgb_led_t* led,
-                    uint32_t interval);
+void rgb_led_breathe(struct rgb_led* led, uint32_t interval);
+
+/**
+ * Set the RGB LED mode to Fixed on the previously configured color.
+ *
+ * @param dev The RGB LED device to configure.
+ */
+void rgb_led_breathe_stop(struct rgb_led *led);
 
 /**
  * Set the RGB LED mode to Off.
  *
  * @param dev The pwm device to configure.
- *
- * @return 0 on success, negative on error.
  */
-int rgb_led_set_off(rgb_led_t* led);
+void rgb_led_set_off(struct rgb_led* led);
 
 #ifdef __cplusplus
 }

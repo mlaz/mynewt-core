@@ -24,8 +24,31 @@
 
 #include "rgb_led.h"
 
+/* Define task stack and task object */
+#define RGBLED_PRI 5 /* (OS_TASK_PRI_HIGHEST) */
+#define RGBLED_SIZE (128)
+struct os_task rgbled_task;
+os_stack_t rgbled_stack[RGBLED_SIZE];
+
+struct os_eventq c_rgbled_evq;
 struct pwm_dev *pwm;
 uint16_t top_val;
+struct rgb_led* led1;
+
+void
+rgbled_task_handler(void *arg)
+{
+    led1 = init_rgb_led(pwm, top_val, 0, 1, 2, &c_rgbled_evq);
+    rgb_led_set_color(led1, 127, 30, 127);
+
+    rgb_led_set_bness(led1, 1);
+
+    rgb_led_breathe(led1, 2000);
+
+    while(1) {
+        os_eventq_run(&c_rgbled_evq);
+    }
+}
 
 int
 main(int argc, char **argv)
@@ -36,16 +59,15 @@ main(int argc, char **argv)
         .data = NULL
     };
     uint32_t base_freq;
-    rgb_led_t* led1;
+    uint32_t pwm_freq = 2000;
 
     sysinit();
 
     pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
-
     /* set the PWM frequency */
-    pwm_set_frequency(pwm, 1000);
+    pwm_set_frequency(pwm, pwm_freq);
     base_freq = pwm_get_clock_freq(pwm);
-    top_val = (uint16_t) (base_freq / 1000);
+    top_val = (uint16_t) (base_freq / pwm_freq);
 
     /* setup red channel */
     pwm_chan_config(pwm, 0, &chan_conf);
@@ -58,12 +80,17 @@ main(int argc, char **argv)
     chan_conf.pin = 13;
     pwm_chan_config(pwm, 2, &chan_conf);
 
-    led1 = init_rgb_led(pwm, top_val, 0, 1, 2);
-    rgb_led_set_color(led1, 127, 30, 127);
-    /* rgb_led_set_off(led1); */
+    os_task_init(&rgbled_task,
+                 "rgbled",
+                 rgbled_task_handler,
+                 NULL,
+                 RGBLED_PRI,
+                 OS_WAIT_FOREVER,
+                 rgbled_stack,
+                 RGBLED_SIZE);
 
     while (1) {
-        os_eventq_run(os_eventq_dflt_get());
+       os_eventq_run(os_eventq_dflt_get());
     }
     assert(0);
     return(0);
