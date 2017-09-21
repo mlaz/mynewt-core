@@ -1,11 +1,8 @@
-#include "sysinit/sysinit.h"
 #include "rgb_led.h"
+
+#include <sysinit/sysinit.h>
 #include <pwm/pwm.h>
-
-#include "os/os.h"
-#include "os/os_callout.h"
-
-#define MAX_BNESS 10
+#include <os/os.h>
 
 /**
  * Setting a configured color.
@@ -13,9 +10,20 @@
 static void
 set_color_with_brightness(struct rgb_led *led)
 {
-    led->r_duty = led->r_val * ((uint16_t) led->brightness);
-    led->g_duty = led->g_val * ((uint16_t) led->brightness);
-    led->b_duty = led->b_val * ((uint16_t) led->brightness);
+    uint16_t inv_bness = MAX_BNESS - led->brightness;
+    if (inv_bness == 0) {
+        led->r_duty = led->r_val;
+        led->g_duty = led->g_val;
+        led->b_duty = led->b_val;
+    } else if (inv_bness ==  MAX_BNESS) {
+        led->r_duty = 0;
+        led->g_duty = 0;
+        led->b_duty = 0;
+    } else {
+        led->r_duty = led->r_val / inv_bness;
+        led->g_duty = led->g_val / inv_bness;
+        led->b_duty = led->b_val / inv_bness;
+    }
 
     pwm_enable_duty_cycle(led->dev, led->r_chan, led->r_duty);
     pwm_enable_duty_cycle(led->dev, led->g_chan, led->g_duty);
@@ -29,6 +37,7 @@ static void
 breathe_cb(struct os_event *ev)
 {
     assert(ev != NULL);
+
     struct rgb_led* led = ev->ev_arg;
 
     if (led->brightness >= MAX_BNESS || led->brightness == 0) {
@@ -52,19 +61,19 @@ fade_cb(struct os_event *ev)
     assert(ev != NULL);
     led = ev->ev_arg;
 
-    diff = ((int16_t) led->r_duty) - ((int16_t) led->r_target);
+    diff = led->r_duty - led->r_target;
     if (diff) {
         done = false;
         led->r_duty += (diff < 0) ? 1 : -1;
     }
 
-    diff = ((int16_t) led->g_duty) - ((int16_t) led->g_target);
+    diff = led->g_duty - led->g_target;
     if (diff) {
         done = false;
         led->g_duty += (diff < 0) ? 1 : -1;
     }
 
-    diff = ((int16_t) led->b_duty) - ((int16_t) led->b_target);
+    diff = led->b_duty - led->b_target;
     if (diff) {
         done = false;
         led->b_duty += (diff < 0) ? 1 : -1;
@@ -101,18 +110,18 @@ init_rgb_led(struct pwm_dev *dev,
 
     struct rgb_led* led = (struct rgb_led*) calloc(1, sizeof(struct rgb_led));
     led->dev = dev;
-    led->max_val = top_val / 10;
+    led->max_val = top_val;
     led->r_chan = r_chan;
     led->g_chan = g_chan;
     led->b_chan = b_chan;
-    led->brightness = 5; /* brightness defaults to 50% */
+    led->brightness = MAX_BNESS / 2; /* brightness defaults to 50% */
 
     /* TODO: add some checking for a null evq pointer */
-    os_callout_init(&led->c_rgbled_breathe,
+    os_callout_init(&(led->c_rgbled_breathe),
                     c_rgbled_evq,
                     breathe_cb,
                     led);
-    os_callout_init(&led->c_rgbled_fade,
+    os_callout_init(&(led->c_rgbled_fade),
                     c_rgbled_evq,
                     fade_cb,
                     led);
@@ -176,6 +185,7 @@ rgb_led_set_webcolor(struct rgb_led *led, uint32_t color)
  * (one channel per device)
  *
  * @param les The RGB LED to configure.
+ * @param interval The interval between steps.
  * @param r_val The color value for the red component.
  * @param g_val The color value for the green component.
  * @param g_val The color value for the blue component.
@@ -187,12 +197,12 @@ rgb_fade_to_color(struct rgb_led *led,
                   uint8_t g_val,
                   uint8_t b_val)
 {
-    led->interval_ticks = OS_TICKS_PER_SEC / 10; /* (interval * (OS_TICKS_PER_SEC / 1000)) / MAX_BNESS; */
+    led->interval_ticks = (interval * (OS_TICKS_PER_SEC / 1000));
     led->r_target = (r_val * led->max_val) / 255;
     led->g_target = (g_val * led->max_val) / 255;
     led->b_target = (b_val * led->max_val) / 255;
 
-    os_callout_reset(&led->c_rgbled_fade, led->interval_ticks);
+    os_callout_reset(&(led->c_rgbled_fade), led->interval_ticks);
 }
 
 /**
@@ -204,12 +214,12 @@ rgb_fade_to_color(struct rgb_led *led,
  * @return 0 on success, negative on error.
  */
 void
-rgb_led_breathe(struct rgb_led *led, uint32_t interval)
+rgb_led_breathe(struct rgb_led *led, uint32_t period)
 {
     led->save_bness = led->brightness;
     led->breathe_up = true;
-    led->interval_ticks = OS_TICKS_PER_SEC / 10; /* (interval * (OS_TICKS_PER_SEC / 1000)) / MAX_BNESS; */
-    os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
+    led->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS;
+    os_callout_reset(&(led->c_rgbled_breathe), led->interval_ticks);
 }
 
 /**
@@ -224,7 +234,7 @@ void
 rgb_led_breathe_stop(struct rgb_led *led)
 {
     led->brightness = led->save_bness;
-    os_callout_stop(&led->c_rgbled_breathe);
+    os_callout_stop(&(led->c_rgbled_breathe));
 }
 
 /**

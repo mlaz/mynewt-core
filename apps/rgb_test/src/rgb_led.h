@@ -20,6 +20,10 @@
 #ifndef RGB_LED_H
 #define RGB_LED_H
 
+#ifndef MAX_BNESS
+#define MAX_BNESS 100
+#endif /* MAX_BNESS */
+
 #include <pwm/pwm.h>
 #include <os/os.h>
 #include "os/os_callout.h"
@@ -104,6 +108,7 @@ void rgb_led_set_color(struct rgb_led* led,
  * Fade the RGB LED to a given color.
  *
  * @param led The struct rgb_led structure.
+ * @param interval The interval between steps.
  * @param r_val The color value for the red component.
  * @param g_val The color value for the green component.
  * @param g_val The color value for the blue component.
@@ -117,12 +122,9 @@ void rgb_fade_to_color(struct rgb_led* led,
  * Set the RGB LED mode to Breathe.
  *
  * @param dev The RGB LED device to configure.
- * @param interval The period of the sequence.
- * @param r_dev The color value for the red component.
- * @param g_dev The color value for the green component.
- * @param g_dev The color value for the blue component.
+ * @param period The period of the sequence.
  */
-void rgb_led_breathe(struct rgb_led* led, uint32_t interval);
+void rgb_led_breathe(struct rgb_led* led, uint32_t period);
 
 /**
  * Set the RGB LED mode to Fixed on the previously configured color.
