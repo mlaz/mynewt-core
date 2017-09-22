@@ -21,8 +21,13 @@
 #define RGB_LED_H
 
 #ifndef MAX_BNESS
-#define MAX_BNESS 100
+#define MAX_BNESS 255
 #endif /* MAX_BNESS */
+
+#ifndef BREATHE_STEPS
+#define BREATHE_STEPS 100
+#endif /* BREATHE_STEPS */
+
 
 #include <pwm/pwm.h>
 #include <os/os.h>
@@ -35,6 +40,7 @@ extern "C" {
 struct rgb_led {
     struct pwm_dev *dev;
     struct os_callout c_rgbled_breathe;
+    struct os_callout c_array_breathe;
     struct os_callout c_rgbled_fade;
     uint16_t max_val; /* Color component maximum value. */
     uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
@@ -81,6 +87,14 @@ struct rgb_led* init_rgb_led(struct pwm_dev *dev,
  * @param bness The brightness level.
  */
 void rgb_led_set_bness(struct rgb_led *led, uint8_t bness);
+
+/* /\** */
+/*  * Fade to brightness level from 0 to 255. */
+/*  * */
+/*  * @param led The struct rgb_led structure. */
+/*  * @param bness The brightness level. */
+/*  *\/ */
+/* void rgb_fade_to_bness(struct rgb_led *led, uint8_t bness); */
 
 /**
  * Set brightness level from 0 to 255.
@@ -132,6 +146,15 @@ void rgb_led_breathe(struct rgb_led* led, uint32_t period);
  * @param dev The RGB LED device to configure.
  */
 void rgb_led_breathe_stop(struct rgb_led *led);
+
+/**
+ * Set the multiple RGB LED mode to Breathe. Breathing is simultaneous.
+ *
+ * @param dev The RGB LED device array.
+ * @param len The RGB LED device array length.
+ * @param period The period of the sequence.
+ */
+void rgb_led_breathe_array(struct rgb_led* leds, uint8_t len ,uint32_t period);
 
 /**
  * Set the RGB LED mode to Off.

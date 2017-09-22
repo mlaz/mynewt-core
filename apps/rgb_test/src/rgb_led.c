@@ -4,6 +4,13 @@
 #include <pwm/pwm.h>
 #include <os/os.h>
 
+struct array_mdata {
+    struct rgb_led* array;
+    uint8_t len;
+};
+
+static struct array_mdata led_array;
+
 /**
  * Setting a configured color.
  */
@@ -46,6 +53,30 @@ breathe_cb(struct os_event *ev)
     led->brightness += (led->breathe_up) ? 1 : -1;
     set_color_with_brightness(led);
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
+}
+
+/**
+ * RGB LED breathe callback.
+ */
+static void
+breathe_array_cb(struct os_event *ev)
+{
+    uint32_t cnt;
+    uint16_t bness;
+    struct rgb_led* leds = led_array.array;
+
+    if (leds[0].brightness >= MAX_BNESS || leds[0].brightness == 0) {
+        leds[0].breathe_up = ! leds[0].breathe_up;
+    }
+
+    bness = leds[0].brightness;
+    bness += (leds[0].breathe_up) ? 1 : -1;
+    for (cnt = 0; cnt < led_array.len; cnt++)
+    {
+        leds[cnt].brightness = bness;
+        set_color_with_brightness(&leds[cnt]);
+    }
+    os_callout_reset(&leds[0].c_array_breathe, leds[0].interval_ticks);
 }
 
 /**
@@ -121,6 +152,10 @@ init_rgb_led(struct pwm_dev *dev,
                     c_rgbled_evq,
                     breathe_cb,
                     led);
+    os_callout_init(&(led->c_array_breathe),
+                    c_rgbled_evq,
+                    breathe_array_cb,
+                    led);
     os_callout_init(&(led->c_rgbled_fade),
                     c_rgbled_evq,
                     fade_cb,
@@ -140,6 +175,22 @@ rgb_led_get_bness(struct rgb_led *led)
 {
     return led->brightness;
 }
+
+/* /\** */
+/*  * Fade to brightness level from 0 to 255. */
+/*  * */
+/*  * @param led The struct rgb_led structure. */
+/*  * @param bness The brightness level. */
+/*  *\/ */
+/* void rgb_fade_to_bness(struct rgb_led *led, uint8_t bness) */
+/* { */
+/*     led->interval_ticks = (interval * (OS_TICKS_PER_SEC / 1000)); */
+/*     led->r_target = (r_val * led->max_val) / 255; */
+/*     led->g_target = (g_val * led->max_val) / 255; */
+/*     led->b_target = (b_val * led->max_val) / 255; */
+
+/*     os_callout_reset(&(led->c_rgbled_fade), led->interval_ticks); */
+/* } */
 
 /**
  * Set the RGB LED mode to Constant.
@@ -223,12 +274,9 @@ rgb_led_breathe(struct rgb_led *led, uint32_t period)
 }
 
 /**
- * Set the RGB LED mode to Breathe.
+ * Set the RGB LED mode to Fixed.
  *
  * @param dev The RGB LED device to configure.
- * @param interval The period of the sequence.
- *
- * @return 0 on success, negative on error.
  */
 void
 rgb_led_breathe_stop(struct rgb_led *led)
@@ -238,11 +286,29 @@ rgb_led_breathe_stop(struct rgb_led *led)
 }
 
 /**
+ * Set the multiple RGB LED mode to Breathe. Breathing is simultaneous.
+ *
+ * @param dev The RGB LED device array.
+ * @param len The RGB LED device array length.
+ * @param period The period of the sequence.
+ */
+void
+rgb_led_breathe_array(struct rgb_led* leds, uint8_t len ,uint32_t period)
+{
+    struct rgb_led* current;
+    leds->breathe_up = true;
+
+    for (current = leds; current < leds + len; current++)
+    {
+         current->save_bness = current->brightness;
+    }
+    os_callout_reset(&(leds->c_rgbled_breathe), leds->interval_ticks);
+}
+
+/**
  * Set the RGB LED mode to Off.
  *
  * @param dev The pwm device to configure.
- *
- * @return 0 on success, negative on error.
  */
 void
 rgb_led_set_off(struct rgb_led *led)
