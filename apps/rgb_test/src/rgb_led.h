@@ -42,6 +42,7 @@ struct rgb_led {
     struct os_callout c_rgbled_breathe;
     struct os_callout c_array_breathe;
     struct os_callout c_rgbled_fade;
+    float steps;
     uint16_t max_val; /* Color component maximum value. */
     uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
     uint8_t brightness; /* Brightness level, from 0 to 100. */
@@ -154,7 +155,7 @@ void rgb_led_breathe_stop(struct rgb_led *led);
  * @param len The RGB LED device array length.
  * @param period The period of the sequence.
  */
-void rgb_led_breathe_array(struct rgb_led* leds, uint8_t len ,uint32_t period);
+void rgb_led_breathe_array(struct rgb_led** leds, uint8_t len ,uint32_t period);
 
 /**
  * Set the RGB LED mode to Off.

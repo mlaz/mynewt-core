@@ -1,8 +1,12 @@
 #include "rgb_led.h"
+#include "math_helper.h"
 
+#include <console/console.h>
 #include <sysinit/sysinit.h>
 #include <pwm/pwm.h>
 #include <os/os.h>
+
+#include "easing.h"
 
 struct array_mdata {
     struct rgb_led* array;
@@ -47,10 +51,12 @@ breathe_cb(struct os_event *ev)
 
     struct rgb_led* led = ev->ev_arg;
 
-    if (led->brightness >= MAX_BNESS || led->brightness == 0) {
+    if (led->steps >= BREATHE_STEPS || led->steps == 0) {
         led->breathe_up = ! led->breathe_up;
     }
-    led->brightness += (led->breathe_up) ? 1 : -1;
+    led->steps += (led->breathe_up) ? 1 : -1;
+
+    led->brightness = exp_sin_custom_io(led->steps);
     set_color_with_brightness(led);
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
 }
@@ -63,7 +69,7 @@ breathe_array_cb(struct os_event *ev)
 {
     uint32_t cnt;
     uint16_t bness;
-    struct rgb_led* leds = led_array.array;
+    struct rgb_led* leds = led_array.array; //FIXME!
 
     if (leds[0].brightness >= MAX_BNESS || leds[0].brightness == 0) {
         leds[0].breathe_up = ! leds[0].breathe_up;
@@ -269,7 +275,8 @@ rgb_led_breathe(struct rgb_led *led, uint32_t period)
 {
     led->save_bness = led->brightness;
     led->breathe_up = true;
-    led->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS;
+    led->steps = 1;
+    led->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / BREATHE_STEPS;
     os_callout_reset(&(led->c_rgbled_breathe), led->interval_ticks);
 }
 
@@ -293,16 +300,17 @@ rgb_led_breathe_stop(struct rgb_led *led)
  * @param period The period of the sequence.
  */
 void
-rgb_led_breathe_array(struct rgb_led* leds, uint8_t len ,uint32_t period)
+rgb_led_breathe_array(struct rgb_led** leds, uint8_t len ,uint32_t period)
 {
-    struct rgb_led* current;
-    leds->breathe_up = true;
+    int cnt;
+    leds[0]->breathe_up = true;
+    leds[0]->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS;
 
-    for (current = leds; current < leds + len; current++)
+    for (cnt = 0; cnt < len; cnt++)
     {
-         current->save_bness = current->brightness;
+         leds[cnt]->save_bness = leds[cnt]->brightness;
     }
-    os_callout_reset(&(leds->c_rgbled_breathe), leds->interval_ticks);
+    os_callout_reset(&(leds[0]->c_array_breathe), leds[0]->interval_ticks);
 }
 
 /**
