@@ -1,12 +1,10 @@
 #include "rgb_led.h"
-#include "math_helper.h"
+#include "easing.h"
 
 #include <console/console.h>
 #include <sysinit/sysinit.h>
 #include <pwm/pwm.h>
 #include <os/os.h>
-
-#include "easing.h"
 
 struct array_mdata {
     struct rgb_led* array;
