@@ -1533,7 +1533,7 @@ ble_ll_conn_event_start_cb(struct ble_ll_sched_item *sch)
              */
             usecs = connsm->slave_cur_tx_win_usecs + 61 +
                 (2 * connsm->slave_cur_window_widening);
-            ble_phy_wfr_enable(BLE_PHY_WFR_ENABLE_RX, usecs);
+            ble_phy_wfr_enable(BLE_PHY_WFR_ENABLE_RX, 0, usecs);
             /* Set next wakeup time to connection event end time */
             rc = BLE_LL_SCHED_STATE_RUNNING;
         }
@@ -2635,13 +2635,15 @@ ble_ll_conn_event_end(struct os_event *ev)
      */
     if (connsm->conn_state == BLE_LL_CONN_STATE_CREATED) {
         tmo = (uint32_t)connsm->conn_itvl * BLE_LL_CONN_ITVL_USECS * 6UL;
+        ble_err = BLE_ERR_CONN_ESTABLISHMENT;
     } else {
         tmo = connsm->supervision_tmo * BLE_HCI_CONN_SPVN_TMO_UNITS * 1000UL;
+        ble_err = BLE_ERR_CONN_SPVN_TMO;
     }
     /* XXX: Convert to ticks to usecs calculation instead??? */
     tmo = os_cputime_usecs_to_ticks(tmo);
     if ((int32_t)(connsm->anchor_point - connsm->last_rxd_pdu_cputime) >= tmo) {
-        ble_ll_conn_end(connsm, BLE_ERR_CONN_SPVN_TMO);
+        ble_ll_conn_end(connsm, ble_err);
         return;
     }
 
@@ -3440,9 +3442,12 @@ ble_ll_conn_rx_data_pdu(struct os_mbuf *rxpdu, struct ble_mbuf_hdr *hdr)
             acl_len = rxbuf[1];
             acl_hdr = hdr_byte & BLE_LL_DATA_HDR_LLID_MASK;
 
-            /* Check that the LLID is reasonable */
+            /*
+             * Check that the LLID and payload length are reasonable.
+             * Empty payload is only allowed for LLID == 01b.
+             *  */
             if ((acl_hdr == 0) ||
-                ((acl_hdr == BLE_LL_LLID_DATA_START) && (acl_len == 0))) {
+                ((acl_len == 0) && (acl_hdr != BLE_LL_LLID_DATA_FRAG))) {
                 STATS_INC(ble_ll_conn_stats, rx_bad_llid);
                 goto conn_rx_data_pdu_end;
             }

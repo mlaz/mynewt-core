@@ -99,9 +99,13 @@ static int query_iterator;
 oc_resource_t *
 oc_new_resource(const char *uri, uint8_t num_resource_types, int device)
 {
-  oc_resource_t *resource = oc_ri_alloc_resource();
+  oc_resource_t *resource;
   const char *start = uri;
   size_t end = strlen(uri);
+
+  resource = oc_ri_alloc_resource();
+  assert(resource);
+
   oc_alloc_string(&resource->uri, end + 1);
   strncpy((char *)oc_string(resource->uri), start, end);
   strcpy((char *)oc_string(resource->uri) + end, (const char *)"");
@@ -141,6 +145,33 @@ oc_resource_make_secure(oc_resource_t *resource)
   resource->properties |= OC_SECURE;
 }
 #endif /* OC_SECURITY */
+
+#if MYNEWT_VAL(OC_TRANS_SECURITY)
+/**
+ * Configures the specified resource with a minimum set of transport layer
+ * security requirements.
+ *
+ * @param resource              The resource to configure.
+ * @param enc                   Whether transport layer encryption is required.
+ * @param auth                  Whether transport layer authentication is
+ *                                  required.
+ */
+void
+oc_resource_set_trans_security(oc_resource_t *resource, bool enc, bool auth)
+{
+    if (enc) {
+        resource->properties |= OC_TRANS_ENC;
+    } else {
+        resource->properties &= ~OC_TRANS_ENC;
+    }
+
+    if (auth) {
+        resource->properties |= OC_TRANS_AUTH;
+    } else {
+        resource->properties &= ~OC_TRANS_AUTH;
+    }
+}
+#endif
 
 void
 oc_resource_set_discoverable(oc_resource_t *resource)

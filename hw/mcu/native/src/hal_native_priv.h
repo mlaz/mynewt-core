@@ -6,7 +6,7 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
@@ -17,27 +17,11 @@
  * under the License.
  */
 
-#include <stddef.h>
-#include "os/os_test.h"
-#include "nffs/nffs_test.h"
-#include "bootutil/bootutil_test.h"
-#include "testutil/testutil.h"
-#include "mbedtls/mbedtls_test.h"
-#include "config/../../src/test/config_test.h"
+#ifndef __HAL_NATIVE_PRIV_H__
+#define __HAL_NATIVE_PRIV_H__
 
-extern int util_test_all(void);
+#include <stdint.h>
 
-int
-main(void)
-{
-    sysinit();
+void hal_bsp_set_hw_id(const uint8_t *id, int len);
 
-    os_test_all();
-    nffs_test_all();
-    boot_test_all();
-    util_test_all();
-    mbedtls_test_all();
-    config_test_all();
-
-    return 0;
-}
+#endif /*  __HAL_NATIVE_PRIV_H__ */

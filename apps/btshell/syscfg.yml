@@ -18,6 +18,11 @@
 
 # Package: apps/btshell
 
+syscfg.defs:
+    BTSHELL_ANS:
+        description: Include support for the alert notification service.
+        value: 1
+
 syscfg.vals:
     # Enable the shell task.
     SHELL_TASK: 1
@@ -29,8 +34,8 @@ syscfg.vals:
     BLE_SM_LEGACY: 0
     BLE_SM_SC: 0
 
-    # Disable eddystone beacons.
-    BLE_EDDYSTONE: 0
-
     # Default task settings
     OS_MAIN_STACK_SIZE: 512
+
+    # Newtmgr is not supported in this app, so disable newtmgr-over-shell.
+    SHELL_NEWTMGR: 0

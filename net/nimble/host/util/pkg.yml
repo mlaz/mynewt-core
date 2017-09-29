@@ -17,19 +17,13 @@
 # under the License.
 #
 
-pkg.name: apps/test
-pkg.type: app
-pkg.description: Automated test suite for mynewt core functionality.
+pkg.name: net/nimble/host/util
+pkg.description: Supplementary utilities for the NimBLE host
 pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
+    - ble
+    - bluetooth
 
 pkg.deps:
-    - fs/nffs
-    - boot/bootutil
-    - sys/console/full
-    - crypto/mbedtls
-    - kernel/os
-    - test/testreport
-    - test/testutil
-    - sys/config
+    - net/nimble/host

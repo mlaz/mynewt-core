@@ -110,7 +110,8 @@ ble_hs_test_util_prev_tx_dequeue(void)
     uint8_t pb;
     int rc;
 
-    os_mbuf_free_chain(ble_hs_test_util_prev_tx_cur);
+    rc = os_mbuf_free_chain(ble_hs_test_util_prev_tx_cur);
+    TEST_ASSERT_FATAL(rc == 0);
 
     om = ble_hs_test_util_prev_tx_dequeue_once(&hci_hdr);
     if (om != NULL) {
@@ -284,14 +285,6 @@ ble_hs_test_util_build_cmd_status(uint8_t *dst, int len,
     put_le16(dst + 4, opcode);
 }
 
-#define BLE_HS_TEST_UTIL_PHONY_ACK_MAX  64
-struct ble_hs_test_util_phony_ack {
-    uint16_t opcode;
-    uint8_t status;
-    uint8_t evt_params[256];
-    uint8_t evt_params_len;
-};
-
 static struct ble_hs_test_util_phony_ack
 ble_hs_test_util_phony_acks[BLE_HS_TEST_UTIL_PHONY_ACK_MAX];
 static int ble_hs_test_util_num_phony_acks;
@@ -350,7 +343,7 @@ ble_hs_test_util_set_ack(uint16_t opcode, uint8_t status)
     ble_hs_test_util_set_ack_params(opcode, status, NULL, 0);
 }
 
-static void
+void
 ble_hs_test_util_set_ack_seq(struct ble_hs_test_util_phony_ack *acks)
 {
     int i;
@@ -974,7 +967,8 @@ ble_hs_test_util_l2cap_rx(uint16_t conn_handle,
     if (conn != NULL) {
         rc = ble_l2cap_rx(conn, hci_hdr, om, &rx_cb, &reject_cid);
     } else {
-        os_mbuf_free_chain(om);
+        rc = os_mbuf_free_chain(om);
+        TEST_ASSERT_FATAL(rc == 0);
     }
 
     ble_hs_unlock();
@@ -1686,6 +1680,7 @@ ble_hs_test_util_verify_tx_find_info_rsp(
     off = 0;
 
     om = ble_hs_test_util_prev_tx_dequeue_pullup();
+    TEST_ASSERT_FATAL(om);
 
     rc = os_mbuf_copydata(om, off, sizeof buf, buf);
     TEST_ASSERT(rc == 0);
@@ -1739,6 +1734,7 @@ ble_hs_test_util_verify_tx_read_group_type_rsp(
     ble_hs_test_util_tx_all();
 
     om = ble_hs_test_util_prev_tx_dequeue_pullup();
+    TEST_ASSERT_FATAL(om);
 
     ble_att_read_group_type_rsp_parse(om->om_data, om->om_len, &rsp);
 
@@ -2002,9 +1998,8 @@ ble_hs_test_util_verify_tx_l2cap_update_rsp(uint8_t exp_id,
 }
 
 void
-ble_hs_test_util_set_static_rnd_addr(void)
+ble_hs_test_util_set_static_rnd_addr(const uint8_t *addr)
 {
-    uint8_t addr[6] = { 1, 2, 3, 4, 5, 0xc1 };
     int rc;
 
     ble_hs_test_util_set_ack(
@@ -2084,7 +2079,8 @@ ble_hs_test_util_read_local_flat(uint16_t attr_handle, uint16_t max_len,
 
     *out_len = OS_MBUF_PKTLEN(om);
 
-    os_mbuf_free_chain(om);
+    rc = os_mbuf_free_chain(om);
+    TEST_ASSERT_FATAL(rc == 0);
     return 0;
 }
 
@@ -2163,6 +2159,7 @@ ble_hs_test_util_mbuf_alloc_all_but(int count)
 {
     struct os_mbuf *prev;
     struct os_mbuf *om;
+    int rc;
     int i;
 
     /* Allocate all available mbufs and put them in a single chain. */
@@ -2184,7 +2181,8 @@ ble_hs_test_util_mbuf_alloc_all_but(int count)
     for (i = 0; i < count; i++) {
         TEST_ASSERT_FATAL(prev != NULL);
         om = SLIST_NEXT(prev, om_next);
-        os_mbuf_free(prev);
+        rc = os_mbuf_free(prev);
+        TEST_ASSERT_FATAL(rc == 0);
 
         prev = om;
     }
@@ -2447,4 +2445,7 @@ ble_hs_test_util_init(void)
     TEST_ASSERT_FATAL(rc == 0);
 
     ble_hs_test_util_prev_hci_tx_clear();
+
+    /* Clear random address. */
+    ble_hs_test_util_set_static_rnd_addr((uint8_t[6]){ 0, 0, 0, 0, 0, 0 });
 }

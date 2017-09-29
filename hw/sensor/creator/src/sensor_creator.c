@@ -24,6 +24,9 @@
 #if MYNEWT_VAL(LSM303DLHC_OFB)
 #include <lsm303dlhc/lsm303dlhc.h>
 #endif
+#if MYNEWT_VAL(MPU6050_OFB)
+#include <mpu6050/mpu6050.h>
+#endif
 #if MYNEWT_VAL(BNO055_OFB)
 #include <bno055/bno055.h>
 #endif
@@ -40,6 +43,10 @@
 /* Driver definitions */
 #if MYNEWT_VAL(LSM303DLHC_OFB)
 static struct lsm303dlhc lsm303dlhc;
+#endif
+
+#if MYNEWT_VAL(MPU6050_OFB)
+static struct mpu6050 mpu6050;
 #endif
 
 #if MYNEWT_VAL(BNO055_OFB)
@@ -90,6 +97,14 @@ static struct sensor_itf i2c_0_itf_lsm = {
     .si_type = SENSOR_ITF_I2C,
     .si_num  = 0,
     .si_addr = 0
+};
+#endif
+
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(MPU6050_OFB)
+static struct sensor_itf i2c_0_itf_mpu = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num  = 0,
+    .si_addr = MPU6050_I2C_ADDR
 };
 #endif
 
@@ -240,11 +255,48 @@ config_lsm303dlhc_sensor(void)
     lsmcfg.acc_addr = LSM303DLHC_ADDR_ACCEL;
     /* Device I2C addr for magnetometer */
     lsmcfg.mag_addr = LSM303DLHC_ADDR_MAG;
+    /* Set default mag gain to +/-1.3 gauss */
+    lsmcfg.mag_gain = LSM303DLHC_MAG_GAIN_1_3;
+    /* Set default mag sample rate to 15Hz */
+    lsmcfg.mag_rate = LSM303DLHC_MAG_RATE_15;
 
-    lsmcfg.mask = SENSOR_TYPE_LINEAR_ACCEL|
+    lsmcfg.mask = SENSOR_TYPE_ACCELEROMETER|
                   SENSOR_TYPE_MAGNETIC_FIELD;
 
     rc = lsm303dlhc_config((struct lsm303dlhc *) dev, &lsmcfg);
+
+    os_dev_close(dev);
+    return rc;
+}
+#endif
+
+/**
+ * MPU6050 Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(MPU6050_OFB)
+static int
+config_mpu6050_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct mpu6050_cfg mpucfg;
+
+    dev = (struct os_dev *) os_dev_open("mpu6050_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    mpucfg.accel_range = MPU6050_ACCEL_RANGE_4;
+    mpucfg.gyro_range = MPU6050_GYRO_RANGE_500;
+    mpucfg.clock_source = MPU6050_CLK_GYRO_X;
+    mpucfg.sample_rate_div = 39; /* Sample Rate = Gyroscope Output Rate /
+            (1 + sample_rate_div) */
+    mpucfg.lpf_cfg = 3; /* See data sheet */
+    mpucfg.int_enable = 0;
+    mpucfg.int_cfg = MPU6050_INT_LATCH_EN | MPU6050_INT_RD_CLEAR;
+    mpucfg.mask = SENSOR_TYPE_ACCELEROMETER | SENSOR_TYPE_GYROSCOPE;
+
+    rc = mpu6050_config((struct mpu6050 *) dev, &mpucfg);
 
     os_dev_close(dev);
     return rc;
@@ -310,6 +362,15 @@ sensor_dev_create(void)
     assert(rc == 0);
 
     rc = config_lsm303dlhc_sensor();
+    assert(rc == 0);
+#endif
+
+#if MYNEWT_VAL(MPU6050_OFB)
+    rc = os_dev_create((struct os_dev *) &mpu6050, "mpu6050_0",
+      OS_DEV_INIT_PRIMARY, 0, mpu6050_init, (void *)&i2c_0_itf_mpu);
+    assert(rc == 0);
+
+    rc = config_mpu6050_sensor();
     assert(rc == 0);
 #endif
 

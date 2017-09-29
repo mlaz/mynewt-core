@@ -20,6 +20,7 @@
 #define H_BSP_H
 
 #include <inttypes.h>
+#include "mcu/mcu.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +45,10 @@ extern uint8_t _ccram_start;
 #define LED_2           MCU_GPIO_PORTB(2)
 #define LED_BLINK_PIN   LED_1
 
+/* Buttons */
+#define BUTTON_1        MCU_GPIO_PORTE(7)
+#define BUTTON_2        MCU_GPIO_PORTB(0)
+
 /* UART */
 #define UART_CNT        (4)
 
@@ -52,8 +57,6 @@ extern uint8_t _ccram_start;
 
 /* I2C */
 #define I2C_CNT         (2)
-
-#define NFFS_AREA_MAX    (8)
 
 #ifdef __cplusplus
 }
