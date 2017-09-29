@@ -13,8 +13,9 @@
 #define PI_TIMES2 6.28318530718f  /* 2PI */
 
 /* Custom, used for breathing */
-uint32_t exponential_custom_io(int step);
-uint32_t exp_sin_custom_io(int step);
+uint32_t exponential_custom_io(float step);
+uint32_t exp_sin_custom_io(float step);
+uint32_t sine_custom_io(int step);
 
 /* Linear */
 uint32_t linear_io(int step);

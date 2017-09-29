@@ -28,4 +28,5 @@ pkg.deps:
     - kernel/os
     - sys/console/full
     - hw/drivers/pwm
-    - "@mynewt_nordic/hw/drivers/pwm/pwm_nrf52"
+    - hw/drivers/pwm/soft_pwm
+#    - "@mynewt_nordic/hw/drivers/pwm/pwm_nrf52"

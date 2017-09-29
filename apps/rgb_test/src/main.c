@@ -25,7 +25,7 @@
 #include "rgb_led.h"
 
 /* Define task stack and task object */
-#define RGBLED_PRI (4)
+#define RGBLED_PRI (5)
 #define RGBLED_SSIZE (512)
 static struct os_task rgbled_task;
 os_stack_t rgbled_stack[RGBLED_SSIZE];
@@ -39,7 +39,7 @@ os_stack_t rgbled_stack[RGBLED_SSIZE];
 static struct os_eventq c_rgbled_evq;
 static struct pwm_dev *pwm;
 /* static struct pwm_dev *pwm2; */
-uint16_t top_val;
+static uint16_t top_val;
 
 /* void */
 /* rgbled_task_handler(void *arg) */
@@ -66,7 +66,7 @@ rgbled_task_handler(void *arg)
     rgb_led_set_color(leds[0], 127, 30, 127);
     /* rgb_led_set_color(leds[1], 30, 127, 30); */
 
-    rgb_led_breathe(leds[0], 3000);
+    rgb_led_breathe(leds[0], 5000);
     /* rgb_led_breathe_array(leds, 1, 3000); */
 
     while(1) {
@@ -88,7 +88,7 @@ init_tasks()
 
     os_eventq_init(&c_rgbled_evq);
 
-    pwm = (struct pwm_dev *) os_dev_open("pwm0", 0, NULL);
+    pwm = (struct pwm_dev *) os_dev_open("spwm", 0, NULL);
     /* set the PWM frequency */
     pwm_set_frequency(pwm, pwm_freq);
     base_freq = pwm_get_clock_freq(pwm);

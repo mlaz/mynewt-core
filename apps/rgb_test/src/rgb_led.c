@@ -54,7 +54,8 @@ breathe_cb(struct os_event *ev)
     }
     led->steps += (led->breathe_up) ? 1 : -1;
 
-    led->brightness = exp_sin_custom_io(led->steps);
+    led->brightness = (steps > 50) ? : exp_sin_custom_io(led->steps);
+    /* console_printf("\nbness = %d, steps = %u\n", led->brightness, led->steps); */
     set_color_with_brightness(led);
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
 }

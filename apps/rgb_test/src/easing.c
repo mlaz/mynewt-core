@@ -1,27 +1,27 @@
 #include "easing.h"
 #include <math.h>
 
-static double R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
+static float R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
 
-uint32_t exponential_custom_io(int step)
+uint32_t exponential_custom_io(float step)
 {
     return powf(2, (step / R)) - 1;
 }
 
-static float mplier = MAX_VAL / 2.35040238729; /* MAX_VAL / */
+static float mplier = MAX_VAL / 2.35040238729f; /* MAX_VAL / */
 static float pi_d_maxs = M_PI / MAX_STEPS;
 
 /* http://www.wolframalpha.com/input/?i=(exp(sin(x%2F100pi%2Bpi%2F2))+-+1%2Fe)+*+255%2F(e-1%2Fe) */
-uint32_t exp_sin_custom_io(int step)
+uint32_t exp_sin_custom_io(float step)
 {
     return ( exp( sin((step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
 }
 
-/* /\* https://www.wolframalpha.com/input/?i=255+*+cos((2pi+*+x%2F100)+%2B+pi)+%2B+255 *\/ */
-/* uint32_t sine_io(int step) */
-/* { */
-/*     return MAX_VAL * cos((PI_TIMES2 * step/MAX_STEPS) + M_PI) + MAX_VAL; */
-/* } */
+/* https://www.wolframalpha.com/input/?i=255+*+cos((2pi+*+x%2F100)+%2B+pi)+%2B+255 */
+uint32_t sine_custom_io(int step)
+{
+    return MAX_VAL * cos((PI_TIMES2 * step/MAX_STEPS) + M_PI) + MAX_VAL;
+}
 
 /* static float half_maxv = MAX_VAL / 2.0; */
 /* static float half_maxs = MAX_STEPS / 2.0; */

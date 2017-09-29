@@ -25,7 +25,7 @@
 #endif /* MAX_BNESS */
 
 #ifndef BREATHE_STEPS
-#define BREATHE_STEPS 100
+#define BREATHE_STEPS 200
 #endif /* BREATHE_STEPS */
 
 
@@ -42,7 +42,7 @@ struct rgb_led {
     struct os_callout c_rgbled_breathe;
     struct os_callout c_array_breathe;
     struct os_callout c_rgbled_fade;
-    float steps;
+    int steps;
     uint16_t max_val; /* Color component maximum value. */
     uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
     uint8_t brightness; /* Brightness level, from 0 to 100. */
