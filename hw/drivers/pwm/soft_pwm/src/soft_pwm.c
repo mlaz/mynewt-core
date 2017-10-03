@@ -223,10 +223,6 @@ soft_pwm_enable_duty_cycle(struct pwm_dev *dev, uint8_t cnum, uint16_t fraction)
     bool inverted;
     assert (soft_pwm_dev.chans[cnum].pin != PIN_NOT_USED);
 
-    if (soft_pwm_dev.chans[cnum].fraction == fraction) {
-        return (0);
-    }
-
     soft_pwm_dev.chans[cnum].fraction =
         (fraction < soft_pwm_dev.top_value) ?
         fraction :
@@ -240,7 +236,6 @@ soft_pwm_enable_duty_cycle(struct pwm_dev *dev, uint8_t cnum, uint16_t fraction)
         soft_pwm_dev.chans[cnum].playing = false;
         os_cputime_timer_stop(&soft_pwm_dev.chans[cnum].toggle_timer);
         inverted = soft_pwm_dev.chans[cnum].inverted;
-
         hal_gpio_write(soft_pwm_dev.chans[cnum].pin,
                        (inverted && fraction) ? 0 : 1);
     }
