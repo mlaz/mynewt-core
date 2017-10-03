@@ -83,7 +83,7 @@ init_tasks()
         .data = NULL
     };
     uint32_t base_freq;
-    uint32_t pwm_freq = 2000;
+    uint32_t pwm_freq = 200;
     int rc;
 
     os_eventq_init(&c_rgbled_evq);
