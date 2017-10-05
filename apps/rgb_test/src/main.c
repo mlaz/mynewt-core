@@ -60,14 +60,23 @@ static uint16_t top_val;
 void
 rgbled_task_handler(void *arg)
 {
-    struct rgb_led* leds[2];
+    struct rgb_led* leds[6];
     leds[0] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 0, 1, 2);
-    /* leds[1] = init_rgb_led(pwm2, &c_rgbled_evq, top_val, 0, 1, 2); */
-    rgb_led_set_color(leds[0], 127, 30, 127);
-    /* rgb_led_set_color(leds[1], 30, 127, 30); */
+    leds[1] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 3, 4, 5);
+    leds[2] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 6, 7, 8);
+    leds[3] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 9, 10, 11);
+    leds[4] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 12, 13, 14);
+    leds[5] = init_rgb_led(pwm, &c_rgbled_evq, top_val, 15, 16, 17);
 
-    rgb_led_breathe(leds[0], 5000);
-    /* rgb_led_breathe_array(leds, 1, 3000); */
+    rgb_led_set_color(leds[0], 127, 30, 127);
+    rgb_led_set_color(leds[1], 127, 30, 127);
+    rgb_led_set_color(leds[2], 127, 30, 127);
+    rgb_led_set_color(leds[3], 127, 30, 127);
+    rgb_led_set_color(leds[4], 127, 30, 127);
+    rgb_led_set_color(leds[5], 127, 30, 127);
+
+    /* rgb_led_breathe(leds[0], 5000); */
+    rgb_led_breathe_array(leds, 6, 6500);
 
     while(1) {
         os_eventq_run(&c_rgbled_evq);
@@ -94,6 +103,7 @@ init_tasks()
     base_freq = pwm_get_clock_freq(pwm);
     top_val = (uint16_t) (base_freq / pwm_freq);
 
+    /* led 1 */
     /* setup red channel */
     pwm_chan_config(pwm, 0, &chan_conf);
 
@@ -104,6 +114,71 @@ init_tasks()
     /* setup blue channel */
     chan_conf.pin = 13;
     pwm_chan_config(pwm, 2, &chan_conf);
+
+    /* led 2 */
+    /* setup red channel */
+    chan_conf.pin = 14;
+    pwm_chan_config(pwm, 3, &chan_conf);
+
+    /* setup green channel */
+    chan_conf.pin = 15;
+    pwm_chan_config(pwm, 4, &chan_conf);
+
+    /* setup blue channel */
+    chan_conf.pin = 16;
+    pwm_chan_config(pwm, 5, &chan_conf);
+
+    /* led 3 */
+    /* setup red channel */
+    chan_conf.pin = 17;
+    pwm_chan_config(pwm, 6, &chan_conf);
+
+    /* setup green channel */
+    chan_conf.pin = 18;
+    pwm_chan_config(pwm, 7, &chan_conf);
+
+    /* setup blue channel */
+    chan_conf.pin = 19;
+    pwm_chan_config(pwm, 8, &chan_conf);
+
+    /* led 4 */
+    /* setup red channel */
+    chan_conf.pin = 20;
+    pwm_chan_config(pwm, 9, &chan_conf);
+
+    /* setup green channel */
+    chan_conf.pin = 22;
+    pwm_chan_config(pwm, 10, &chan_conf);
+
+    /* setup blue channel */
+    chan_conf.pin = 23;
+    pwm_chan_config(pwm, 11, &chan_conf);
+
+    /* led 5 */
+    /* setup red channel */
+    chan_conf.pin = 24;
+    pwm_chan_config(pwm, 12, &chan_conf);
+
+    /* setup green channel */
+    chan_conf.pin = 25;
+    pwm_chan_config(pwm, 13, &chan_conf);
+
+    /* setup blue channel */
+    chan_conf.pin = 26;
+    pwm_chan_config(pwm, 14, &chan_conf);
+
+    /* led 6 */
+    /* setup red channel */
+    chan_conf.pin = 2;
+    pwm_chan_config(pwm, 15, &chan_conf);
+
+    /* setup green channel */
+    chan_conf.pin = 3;
+    pwm_chan_config(pwm, 16, &chan_conf);
+
+    /* setup blue channel */
+    chan_conf.pin = 4;
+    pwm_chan_config(pwm, 17, &chan_conf);
 
     /* /\* PWM 2 *\/ */
     /* pwm2 = (struct pwm_dev *) os_dev_open("pwm1", 0, NULL); */
