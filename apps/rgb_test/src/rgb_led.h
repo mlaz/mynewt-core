@@ -141,6 +141,17 @@ void rgb_fade_to_color(struct rgb_led* led,
  */
 void rgb_led_breathe(struct rgb_led* led, uint32_t period);
 
+
+/**
+ * Set the RGB LED mode to Breathe after a given delay.
+ *
+ * @param dev The RGB LED device to configure.
+ * @param interval The period of the sequence.
+ *
+ * @return 0 on success, negative on error.
+ */
+void rgb_led_breathe_delayed(struct rgb_led *led, uint32_t period, uint32_t delay);
+
 /**
  * Set the RGB LED mode to Fixed on the previously configured color.
  *

@@ -75,8 +75,14 @@ rgbled_task_handler(void *arg)
     rgb_led_set_color(leds[4], 127, 30, 127);
     rgb_led_set_color(leds[5], 127, 30, 127);
 
-    /* rgb_led_breathe(leds[0], 5000); */
-    rgb_led_breathe_array(leds, 6, 6500);
+    rgb_led_breathe(leds[0], 5000);
+    rgb_led_breathe_delayed(leds[1], 5000, 2500);
+    rgb_led_breathe_delayed(leds[2], 5000, 3800);
+    rgb_led_breathe_delayed(leds[3], 5000, 1000);
+    rgb_led_breathe_delayed(leds[4], 5000, 3000);
+    rgb_led_breathe_delayed(leds[5], 5000, 2300);
+
+    /* rgb_led_breathe_array(leds, 6, 6500); */
 
     while(1) {
         os_eventq_run(&c_rgbled_evq);
@@ -98,7 +104,6 @@ init_tasks()
     os_eventq_init(&c_rgbled_evq);
 
     pwm = (struct pwm_dev *) os_dev_open("spwm", 0, NULL);
-    /* set the PWM frequency */
     pwm_set_frequency(pwm, pwm_freq);
     base_freq = pwm_get_clock_freq(pwm);
     top_val = (uint16_t) (base_freq / pwm_freq);
@@ -179,25 +184,6 @@ init_tasks()
     /* setup blue channel */
     chan_conf.pin = 4;
     pwm_chan_config(pwm, 17, &chan_conf);
-
-    /* /\* PWM 2 *\/ */
-    /* pwm2 = (struct pwm_dev *) os_dev_open("pwm1", 0, NULL); */
-    /* /\* set the PWM frequency *\/ */
-    /* pwm_set_frequency(pwm2, pwm_freq); */
-    /* base_freq = pwm_get_clock_freq(pwm2); */
-    /* top_val = (uint16_t) (base_freq / pwm_freq); */
-
-    /* /\* setup red channel *\/ */
-    /* chan_conf.pin = 14; */
-    /* pwm_chan_config(pwm2, 0, &chan_conf); */
-
-    /* /\* setup green channel *\/ */
-    /* chan_conf.pin = 15; */
-    /* pwm_chan_config(pwm2, 1, &chan_conf); */
-
-    /* /\* setup blue channel *\/ */
-    /* chan_conf.pin = 16; */
-    /* pwm_chan_config(pwm2, 2, &chan_conf); */
 
     rc = os_task_init(&rgbled_task,
                       "rgbled",
