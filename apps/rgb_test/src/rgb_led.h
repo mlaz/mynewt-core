@@ -41,8 +41,9 @@ struct rgb_led {
     struct pwm_dev *dev;
     struct os_callout c_rgbled_breathe;
     struct os_callout c_array_breathe;
+    struct os_callout c_array_breathe_unsync;
     struct os_callout c_rgbled_fade;
-    int steps;
+    uint32_t steps;
     uint16_t max_val; /* Color component maximum value. */
     uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
     uint8_t brightness; /* Brightness level, from 0 to 100. */
@@ -168,6 +169,21 @@ void rgb_led_breathe_stop(struct rgb_led *led);
  */
 void rgb_led_breathe_array(struct rgb_led** leds, uint8_t len ,uint32_t period);
 
+/**
+ * Set the multiple RGB LED mode to Breathe unsynchronously.
+ * Brightness values are updated simultaniously, although step values may
+ * be different allowing unsynchronized breathing.
+ *
+ * @param leds The RGB LED array.
+ * @param start The array containing the steps value for each RGB LED.
+ * @param len The RGB LED device array length.
+ * @param period The period of the sequence.
+ */
+void
+rgb_led_breathe_unsync_array(struct rgb_led** leds,
+                             uint32_t* start,
+                             uint8_t len ,
+                             uint32_t period);
 /**
  * Set the RGB LED mode to Off.
  *

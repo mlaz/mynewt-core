@@ -66,13 +66,9 @@ breathe_cb(struct os_event *ev)
 static void
 breathe_array_cb(struct os_event *ev)
 {
-    uint32_t cnt;
+    uint32_t idx;
     uint16_t bness;
     struct rgb_led** leds = led_array.array; //FIXME!
-
-    /* if (leds[0].brightness >= MAX_BNESS || leds[0].brightness == 0) { */
-    /*     leds[0].breathe_up = ! leds[0].breathe_up; */
-    /* } */
 
     if (leds[0]->steps >= BREATHE_STEPS || leds[0]->steps == 0) {
         leds[0]->breathe_up = ! leds[0]->breathe_up;
@@ -80,49 +76,39 @@ breathe_array_cb(struct os_event *ev)
 
     leds[0]->steps += (leds[0]->breathe_up) ? 1 : -1;
 
-    /* bness = leds[0].brightness; */
-    /* bness += (leds[0].breathe_up) ? 1 : -1; */
     bness =  exp_sin_custom_io(leds[0]->steps);
-    for (cnt = 0; cnt < led_array.len; cnt++)
+    for (idx = 0; idx < led_array.len; idx++)
     {
-        leds[cnt]->brightness = bness;
-        set_color_with_brightness(leds[cnt]);
+        leds[idx]->brightness = bness;
+        set_color_with_brightness(leds[idx]);
     }
     os_callout_reset(&leds[0]->c_array_breathe, leds[0]->interval_ticks);
 }
 
-/* /\** */
-/*  * Multiple synchronized RGB LED breathing callback. */
-/*  * Probably less optimized than breathe_array_cb(), computes the brightness */
-/*  * value for every LED sparately. */
-/*  *\/ */
-/* static void */
-/* breathe_array_unsync_cb(struct os_event *ev) */
-/* { */
-/*     uint32_t cnt; */
-/*     uint16_t bness; */
-/*     struct rgb_led** leds = led_array.array; //FIXME! */
+/**
+ * Multiple synchronized RGB LED breathing callback.
+ * Probably less optimized than breathe_array_cb(), computes the brightness
+ * value for every LED sparately.
+ */
+static void
+breathe_array_unsync_cb(struct os_event *ev)
+{
+    uint32_t idx;
+    struct rgb_led** leds = led_array.array; //FIXME!
 
-/*     /\* if (leds[0].brightness >= MAX_BNESS || leds[0].brightness == 0) { *\/ */
-/*     /\*     leds[0].breathe_up = ! leds[0].breathe_up; *\/ */
-/*     /\* } *\/ */
+    for (idx = 0; idx < led_array.len; idx++)
+    {
+        if (leds[idx]->steps >= BREATHE_STEPS || leds[idx]->steps == 0) {
+            leds[idx]->breathe_up = ! leds[idx]->breathe_up;
+        }
 
-/*     if (leds[0]->steps >= BREATHE_STEPS || leds[0]->steps == 0) { */
-/*         leds[0]->breathe_up = ! leds[0]->breathe_up; */
-/*     } */
-
-/*     leds[0]->steps += (leds[0]->breathe_up) ? 1 : -1; */
-
-/*     /\* bness = leds[0].brightness; *\/ */
-/*     /\* bness += (leds[0].breathe_up) ? 1 : -1; *\/ */
-/*     bness =  exp_sin_custom_io(leds[0]->steps); */
-/*     for (cnt = 0; cnt < led_array.len; cnt++) */
-/*     { */
-/*         leds[cnt]->brightness = bness; */
-/*         set_color_with_brightness(leds[cnt]); */
-/*     } */
-/*     os_callout_reset(&leds[0]->c_array_breathe, leds[0]->interval_ticks); */
-/* } */
+        leds[idx]->steps += (leds[0]->breathe_up) ? 1 : -1;
+        leds[idx]->brightness = exp_sin_custom_io(leds[idx]->steps);;
+        set_color_with_brightness(leds[idx]);
+    }
+    os_callout_reset(&leds[0]->c_array_breathe_unsync,
+                     leds[0]->interval_ticks);
+}
 
 /**
  * RGB LED fade callback.
@@ -200,6 +186,10 @@ init_rgb_led(struct pwm_dev *dev,
     os_callout_init(&(led->c_array_breathe),
                     c_rgbled_evq,
                     breathe_array_cb,
+                    led);
+    os_callout_init(&(led->c_array_breathe_unsync),
+                    c_rgbled_evq,
+                    breathe_array_unsync_cb,
                     led);
     os_callout_init(&(led->c_rgbled_fade),
                     c_rgbled_evq,
@@ -312,11 +302,6 @@ rgb_fade_to_color(struct rgb_led *led,
 void
 rgb_led_breathe(struct rgb_led *led, uint32_t period)
 {
-    /* led->save_bness = led->brightness; */
-    /* led->breathe_up = true; */
-    /* led->steps = 1; */
-    /* led->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / BREATHE_STEPS; */
-    /* os_callout_reset(&(led->c_rgbled_breathe), led->interval_ticks); */
     rgb_led_breathe_delayed(led, period, 0);
 }
 
@@ -335,7 +320,7 @@ rgb_led_breathe_delayed(struct rgb_led *led, uint32_t period, uint32_t delay)
     led->breathe_up = true;
     led->steps = 1;
     led->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / BREATHE_STEPS;
-    os_callout_reset(&(led->c_rgbled_breathe), delay);
+    os_callout_reset(&(led->c_rgbled_breathe), delay * OS_TICKS_PER_SEC / 1000);
 }
 
 /**
@@ -360,47 +345,50 @@ rgb_led_breathe_stop(struct rgb_led *led)
 void
 rgb_led_breathe_array(struct rgb_led** leds, uint8_t len ,uint32_t period)
 {
-    int cnt;
+    int idx;
     leds[0]->breathe_up = true;
     leds[0]->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS;
     leds[0]->steps = 0;
-    for (cnt = 0; cnt < len; cnt++)
+    for (idx = 0; idx < len; idx++)
     {
-         leds[cnt]->save_bness = leds[cnt]->brightness;
+         leds[idx]->save_bness = leds[idx]->brightness;
     }
     led_array.array = leds;
     led_array.len = len;
     os_callout_reset(&(leds[0]->c_array_breathe), leds[0]->interval_ticks);
 }
 
-/* /\** */
-/*  * Set the multiple RGB LED mode to Breathe unsynchronously. */
-/*  * Brightness values are updated simultaniously, although step values may */
-/*  * be different allowing unsynchronized breathing. */
-/*  * */
-/*  * @param leds The RGB LED array. */
-/*  * @param start The array containing the steps value for each RGB LED. */
-/*  * @param len The RGB LED device array length. */
-/*  * @param period The period of the sequence. */
-/*  *\/ */
-/* void */
-/* rgb_led_breathe_unsynch_array(struct rgb_led** leds, */
-/*                               uint32_t start*, */
-/*                               uint8_t len , */
-/*                               uint32_t period) */
-/* { */
-/*     int idx; */
-/*     leds[0]->breathe_up = true; */
-/*     leds[0]->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS; */
-/*     for (cnt = 0; cnt < len; cnt++) */
-/*     { */
-/*          leds[idx]->steps = start[idx]; */
-/*          leds[idx]->save_bness = leds[cnt]->brightness; */
-/*     } */
-/*     led_array.array = leds; */
-/*     led_array.len = len; */
-/*     os_callout_reset(&(leds[0]->c_array_breathe), leds[0]->interval_ticks); */
-/* } */
+/**
+ * Set the multiple RGB LED mode to Breathe unsynchronously.
+ * Brightness values are updated simultaniously, although step values may
+ * be different allowing unsynchronized breathing.
+ *
+ * @param leds The RGB LED array.
+ * @param start The array containing the steps value for each RGB LED.
+ * @param len The RGB LED device array length.
+ * @param period The period of the sequence.
+ */
+void
+rgb_led_breathe_unsync_array(struct rgb_led** leds,
+                             uint32_t* start,
+                             uint8_t len ,
+                             uint32_t period)
+{
+    int idx;
+    leds[0]->interval_ticks = (period * OS_TICKS_PER_SEC / 1000) / MAX_BNESS;
+    for (idx = 0; idx < len; idx++)
+    {
+        leds[idx]->breathe_up = (start[idx] <= BREATHE_STEPS);
+        leds[idx]->steps = (start[idx] <= BREATHE_STEPS) ?
+            start[idx] :
+            start[idx] - BREATHE_STEPS;
+        leds[idx]->save_bness = leds[idx]->brightness;
+    }
+    led_array.array = leds;
+    led_array.len = len;
+    os_callout_reset(&(leds[0]->c_array_breathe_unsync),
+                     0);
+}
 
 
 /**

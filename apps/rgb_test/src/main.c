@@ -25,7 +25,7 @@
 #include "rgb_led.h"
 
 /* Define task stack and task object */
-#define RGBLED_PRI (5)
+#define RGBLED_PRI (0)
 #define RGBLED_SSIZE (512)
 static struct os_task rgbled_task;
 os_stack_t rgbled_stack[RGBLED_SSIZE];
@@ -56,6 +56,9 @@ static uint16_t top_val;
 /*     } */
 /* } */
 
+enum breathe {SYNCH, UNSYNC_MULTI_CO, UNSYNC_SINGLE_CO};
+
+#define BREATHE UNSYNC_MULTI_CO
 
 void
 rgbled_task_handler(void *arg)
@@ -75,14 +78,45 @@ rgbled_task_handler(void *arg)
     rgb_led_set_color(leds[4], 127, 30, 127);
     rgb_led_set_color(leds[5], 127, 30, 127);
 
-    rgb_led_breathe(leds[0], 5000);
-    rgb_led_breathe_delayed(leds[1], 5000, 2500);
-    rgb_led_breathe_delayed(leds[2], 5000, 3800);
-    rgb_led_breathe_delayed(leds[3], 5000, 1000);
-    rgb_led_breathe_delayed(leds[4], 5000, 3000);
-    rgb_led_breathe_delayed(leds[5], 5000, 2300);
+#if BREATHE == UNSYNCH_MULTI_CO
+    /* rgb_led_breathe(leds[0], 5000); */
+    /* rgb_led_breathe_delayed(leds[1], 5000, 2500); */
+    /* rgb_led_breathe_delayed(leds[2], 5000, 3800); */
+    /* rgb_led_breathe_delayed(leds[3], 5000, 1000); */
+    /* rgb_led_breathe_delayed(leds[4], 5000, 3000); */
+    /* rgb_led_breathe_delayed(leds[5], 5000, 2300); */
 
-    /* rgb_led_breathe_array(leds, 6, 6500); */
+    /* Making the fade pass along the LEDs*/
+    rgb_led_breathe(leds[0], 6000);
+    rgb_led_breathe_delayed(leds[1], 6000, 100);
+    rgb_led_breathe_delayed(leds[2], 6000, 200);
+    rgb_led_breathe_delayed(leds[3], 6000, 300);
+    rgb_led_breathe_delayed(leds[4], 6000, 400);
+    rgb_led_breathe_delayed(leds[5], 6000, 500);
+
+#elif BREATHE == UNSYNCH_SINGLE_CO
+    uint32_t start_steps[6];
+    start_steps[0] = 0;
+    start_steps[1] = 250;
+    start_steps[2] = 150;
+    start_steps[3] = 50;
+    start_steps[4] = 330;
+    start_steps[5] = 90;
+
+    /* Making the fade pass along the LEDs */
+    /* This example doesn't work as expected using this method */
+    /* uint32_t start_steps[6]; */
+    /* start_steps[0] = 0; */
+    /* start_steps[1] = 10; */
+    /* start_steps[2] = 20; */
+    /* start_steps[3] = 30; */
+    /* start_steps[4] = 40; */
+    /* start_steps[5] = 50; */
+
+    rgb_led_breathe_unsync_array(leds, start_steps, 6, 6500);
+#else
+    rgb_led_breathe_array(leds, 6, 6500);
+#endif
 
     while(1) {
         os_eventq_run(&c_rgbled_evq);
