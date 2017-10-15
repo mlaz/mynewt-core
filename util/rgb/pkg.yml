@@ -17,18 +17,12 @@
 # under the License.
 #
 
-pkg.name: apps/rgb_test
-pkg.type: app
-pkg.description: Basic example application which changes colors on an RGB LED.
-pkg.author: "Apache Mynewt <dev@mynewt.incubator.apache.org>"
+pkg.name: util/rgb
+pkg.description: Library containing miscellaneous utilities.
+pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
+    - rgb
 
 pkg.deps:
-    - kernel/os
-    - sys/console/full
-    - hw/drivers/pwm
-    - hw/drivers/pwm/soft_pwm
-    - util/rgb
-
-#    - "@mynewt_nordic/hw/drivers/pwm/pwm_nrf52"
+    - util/easing

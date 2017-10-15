@@ -1,5 +1,5 @@
-#include "rgb_led.h"
-#include "easing.h"
+#include "rgb_led/rgb_led.h"
+#include "easing/easing.h"
 
 #include <console/console.h>
 #include <sysinit/sysinit.h>

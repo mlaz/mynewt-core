@@ -1,4 +1,4 @@
-#include "easing.h"
+#include "easing/easing.h"
 #include <math.h>
 
 static float R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
