@@ -31,6 +31,20 @@
 #include "controller/ble_ll.h"
 #include "nrf.h"
 
+/*
+ * NOTE: This code uses a couple of PPI channels so care should be taken when
+ *       using PPI somewhere else.
+ *
+ * Pre-programmed channels: CH20, CH21, CH23, CH25, CH31
+ * Regular channels: CH4, CH5 and optionally CH17, CH18, CH19
+ *  - CH4 = cancel wfr timer on address match
+ *  - CH5 = disable radio on wfr timer expiry
+ *  - CH17 = (optional) gpio debug for radio ramp-up
+ *  - CH18 = (optional) gpio debug for wfr timer RX enabled
+ *  - CH19 = (optional) gpio debug for wfr timer radio disabled
+ *
+ */
+
 /* XXX: 4) Make sure RF is higher priority interrupt than schedule */
 
 /*
@@ -767,7 +781,6 @@ ble_phy_rx_end_isr(void)
     int rc;
     uint8_t *dptr;
     uint8_t crcok;
-    uint8_t rx_phy_mode;
     uint32_t tx_time;
     struct ble_mbuf_hdr *ble_hdr;
 
@@ -777,9 +790,6 @@ ble_phy_rx_end_isr(void)
 
     /* Disable automatic RXEN */
     NRF_PPI->CHENCLR = PPI_CHEN_CH21_Msk;
-
-    /* Store PHY on which we've just received smth */
-    rx_phy_mode = ble_phy_get_cur_rx_phy_mode();
 
     /* Set RSSI and CRC status flag in header */
     ble_hdr = &g_ble_phy_data.rxhdr;
@@ -828,6 +838,34 @@ ble_phy_rx_end_isr(void)
     }
 
     /*
+     * Let's schedule TX now and we will just cancel it after processing RXed
+     * packet if we don't need TX.
+     *
+     * We need this to initiate connection in case AUX_CONNECT_REQ was sent on
+     * LE Coded S8. In this case the time we process RXed packet is roughly the
+     * same as the limit when we need to have TX scheduled (i.e. TIMER0 and PPI
+     * armed) so we may simply miss the slot and set the timer in the past.
+     *
+     * When TX is scheduled in advance, we may event process packet a bit longer
+     * during radio ramp-up - this gives us extra 40 usecs which is more than
+     * enough.
+     */
+
+    /* Schedule TX exactly T_IFS after RX end captured in CC[2] */
+    tx_time = NRF_TIMER0->CC[2] + BLE_LL_IFS;
+    /* Adjust for delay between actual RX end time and EVENT_END */
+    tx_time -= g_ble_phy_t_rxenddelay[ble_hdr->rxinfo.phy_mode];
+    /* Adjust for radio ramp-up */
+    tx_time -= BLE_PHY_T_TXENFAST;
+    /* Adjust for delay between EVENT_READY and actual TX start time */
+    /* XXX: we may have asymmetric phy so next phy may be different... */
+    tx_time -= g_ble_phy_t_txdelay[g_ble_phy_data.phy_cur_phy_mode];
+
+    NRF_TIMER0->CC[0] = tx_time;
+    NRF_TIMER0->EVENTS_COMPARE[0] = 0;
+    NRF_PPI->CHENSET = PPI_CHEN_CH20_Msk;
+
+    /*
      * XXX: This is a horrible ugly hack to deal with the RAM S1 byte
      * that is not sent over the air but is present here. Simply move the
      * data pointer to deal with it. Fix this later.
@@ -837,20 +875,6 @@ ble_phy_rx_end_isr(void)
     rc = ble_ll_rx_end(dptr + 1, ble_hdr);
     if (rc < 0) {
         ble_phy_disable();
-    } else if (rc == 0) {
-        /* Schedule TX exactly T_IFS after RX end captured in CC[2] */
-        tx_time = NRF_TIMER0->CC[2] + BLE_LL_IFS;
-        /* Adjust for delay between actual RX end time and EVENT_END */
-        tx_time -= g_ble_phy_t_rxenddelay[rx_phy_mode];
-        /* Adjust for radio ramp-up */
-        tx_time -= BLE_PHY_T_TXENFAST;
-        /* Adjust for delay between EVENT_READY and actual TX start time */
-        /* XXX: we may have asymmetric phy so next phy may be different... */
-        tx_time -= g_ble_phy_t_txdelay[g_ble_phy_data.phy_cur_phy_mode];
-
-        NRF_TIMER0->CC[0] = tx_time;
-        NRF_TIMER0->EVENTS_COMPARE[0] = 0;
-        NRF_PPI->CHENSET = PPI_CHEN_CH20_Msk;
     }
 }
 
@@ -879,6 +903,7 @@ ble_phy_rx_start_isr(void)
     ble_hdr->rxinfo.channel = g_ble_phy_data.phy_chan;
     ble_hdr->rxinfo.handle = 0;
     ble_hdr->rxinfo.phy = ble_phy_get_cur_phy();
+    ble_hdr->rxinfo.phy_mode = ble_phy_get_cur_rx_phy_mode();
 #if MYNEWT_VAL(BLE_LL_CFG_FEAT_LL_EXT_ADV)
     ble_hdr->rxinfo.user_data = NULL;
 #endif
@@ -1051,9 +1076,9 @@ ble_phy_dbg_time_setup(void)
     ble_phy_dbg_time_setup_gpiote(--gpiote_idx,
                               MYNEWT_VAL(BLE_PHY_DBG_TIME_TXRXEN_READY_PIN));
 
-    NRF_PPI->CH[6].EEP = (uint32_t)&(NRF_RADIO->EVENTS_READY);
-    NRF_PPI->CH[6].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_CLR[gpiote_idx]);
-    NRF_PPI->CHENSET = PPI_CHEN_CH6_Msk;
+    NRF_PPI->CH[17].EEP = (uint32_t)&(NRF_RADIO->EVENTS_READY);
+    NRF_PPI->CH[17].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_CLR[gpiote_idx]);
+    NRF_PPI->CHENSET = PPI_CHEN_CH17_Msk;
 
     /* CH[20] and PPI CH[21] are on to trigger TASKS_TXEN or TASKS_RXEN */
     NRF_PPI->FORK[20].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_SET[gpiote_idx]);
@@ -1073,11 +1098,14 @@ ble_phy_dbg_time_setup(void)
     ble_phy_dbg_time_setup_gpiote(--gpiote_idx,
                               MYNEWT_VAL(BLE_PHY_DBG_TIME_WFR_PIN));
 
-    NRF_PPI->CH[7].EEP = (uint32_t)&(NRF_RADIO->EVENTS_RXREADY);
-    NRF_PPI->CH[7].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_SET[gpiote_idx]);
-    NRF_PPI->CHENSET = PPI_CHEN_CH7_Msk;
+    NRF_PPI->CH[18].EEP = (uint32_t)&(NRF_RADIO->EVENTS_RXREADY);
+    NRF_PPI->CH[18].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_SET[gpiote_idx]);
+    NRF_PPI->CH[19].EEP = (uint32_t)&(NRF_RADIO->EVENTS_DISABLED);
+    NRF_PPI->CH[19].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_CLR[gpiote_idx]);
+    NRF_PPI->CHENSET = PPI_CHEN_CH18_Msk | PPI_CHEN_CH19_Msk;
 
-    /* CH[5] is always on for wfr */
+    /* CH[4] and CH[5] are always on for wfr */
+    NRF_PPI->FORK[4].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_CLR[gpiote_idx]);
     NRF_PPI->FORK[5].TEP = (uint32_t)&(NRF_GPIOTE->TASKS_CLR[gpiote_idx]);
 #endif
 }

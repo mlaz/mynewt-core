@@ -20,6 +20,7 @@
 #include <os/os_dev.h>
 #include <assert.h>
 #include <defs/error.h>
+#include <string.h>
 
 #if MYNEWT_VAL(LSM303DLHC_OFB)
 #include <lsm303dlhc/lsm303dlhc.h>
@@ -38,6 +39,14 @@
 #endif
 #if MYNEWT_VAL(BME280_OFB)
 #include <bme280/bme280.h>
+#endif
+
+#if MYNEWT_VAL(MS5837_OFB)
+#include <ms5837/ms5837.h>
+#endif
+
+#if MYNEWT_VAL(BMP280_OFB)
+#include <bmp280/bmp280.h>
 #endif
 
 /* Driver definitions */
@@ -65,6 +74,14 @@ static struct tcs34725 tcs34725;
 static struct bme280 bme280;
 #endif
 
+#if MYNEWT_VAL(MS5837_OFB)
+static struct ms5837 ms5837;
+#endif
+
+#if MYNEWT_VAL(BMP280_OFB)
+static struct bmp280 bmp280;
+#endif
+
 /**
  * If a UART sensor needs to be created, interface is defined in
  * the following way
@@ -84,11 +101,19 @@ static struct bme280 bme280;
  *#endif
  */
 
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(BMP280_OFB)
+static struct sensor_itf i2c_0_itf_bmp = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num = 0,
+    .si_addr = BMP280_DFLT_I2C_ADDR
+};
+#endif
+
 #if MYNEWT_VAL(SPI_0_MASTER) && MYNEWT_VAL(BME280_OFB)
 static struct sensor_itf spi_0_itf_bme = {
     .si_type = SENSOR_ITF_SPI,
     .si_num = 0,
-    .si_cspin = 3
+    .si_cs_pin = 3
 };
 #endif
 
@@ -135,6 +160,46 @@ static struct sensor_itf i2c_0_itf_tcs = {
 };
 #endif
 
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(MS5837_OFB)
+static struct sensor_itf i2c_0_itf_ms = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num  = 0,
+    /* HW I2C address for the MS5837 */
+    .si_addr = 0x76
+};
+#endif
+
+/**
+ * MS5837 Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(MS5837_OFB)
+static int
+config_ms5837_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct ms5837_cfg mscfg;
+
+    dev = (struct os_dev *) os_dev_open("ms5837_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    memset(&mscfg, 0, sizeof(mscfg));
+
+
+    mscfg.mc_s_temp_res_osr  = MS5837_RES_OSR_256;
+    mscfg.mc_s_press_res_osr = MS5837_RES_OSR_256;
+    mscfg.mc_s_mask = SENSOR_TYPE_AMBIENT_TEMPERATURE|
+                      SENSOR_TYPE_PRESSURE;
+
+    rc = ms5837_config((struct ms5837 *)dev, &mscfg);
+
+    os_dev_close(dev);
+    return rc;
+}
+#endif
+
 /* Sensor default configuration used by the creator package */
 
 /**
@@ -175,6 +240,41 @@ config_bme280_sensor(void)
 }
 #endif
 
+/**
+ * BMP280 Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(BMP280_OFB)
+static int
+config_bmp280_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct bmp280_cfg bmpcfg;
+
+    dev = (struct os_dev *) os_dev_open("bmp280_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    memset(&bmpcfg, 0, sizeof(bmpcfg));
+
+    bmpcfg.bc_mode = BMP280_MODE_NORMAL;
+    bmpcfg.bc_iir = BMP280_FILTER_X16;
+    bmpcfg.bc_sby_dur = BMP280_STANDBY_MS_0_5;
+    bmpcfg.bc_boc[0].boc_type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
+    bmpcfg.bc_boc[1].boc_type = SENSOR_TYPE_PRESSURE;
+    bmpcfg.bc_boc[0].boc_oversample = BMP280_SAMPLING_X2;
+    bmpcfg.bc_boc[1].boc_oversample = BMP280_SAMPLING_X16;
+    bmpcfg.bc_s_mask = SENSOR_TYPE_AMBIENT_TEMPERATURE|
+                       SENSOR_TYPE_PRESSURE;
+
+    rc = bmp280_config((struct bmp280 *)dev, &bmpcfg);
+
+    os_dev_close(dev);
+    return rc;
+}
+
+#endif
 /**
  * TCS34725 Sensor default configuration used by the creator package
  *
@@ -407,6 +507,24 @@ sensor_dev_create(void)
     assert(rc == 0);
 
     rc = config_bme280_sensor();
+    assert(rc == 0);
+#endif
+
+#if MYNEWT_VAL(MS5837_OFB)
+    rc = os_dev_create((struct os_dev *) &ms5837, "ms5837_0",
+      OS_DEV_INIT_PRIMARY, 0, ms5837_init, (void *)&i2c_0_itf_ms);
+    assert(rc == 0);
+
+    rc = config_ms5837_sensor();
+    assert(rc == 0);
+#endif
+
+#if MYNEWT_VAL(BMP280_OFB)
+    rc = os_dev_create((struct os_dev *) &bmp280, "bmp280_0",
+      OS_DEV_INIT_PRIMARY, 0, bmp280_init, (void *)&i2c_0_itf_bmp);
+    assert(rc == 0);
+
+    rc = config_bmp280_sensor();
     assert(rc == 0);
 #endif
 
