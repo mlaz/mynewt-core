@@ -54,7 +54,8 @@ breathe_cb(struct os_event *ev)
     }
     led->steps += (led->breathe_up) ? 1 : -1;
 
-    led->brightness = exp_sin_custom_io(led->steps);
+    led->brightness = led->breathe_easing(led->steps);
+    /* led->brightness = exp_sin_custom_io(led->steps); */
     /* console_printf("\nbness = %d, steps = %u\n", led->brightness, led->steps); */
     set_color_with_brightness(led);
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
@@ -76,7 +77,7 @@ breathe_array_cb(struct os_event *ev)
 
     leds[0]->steps += (leds[0]->breathe_up) ? 1 : -1;
 
-    bness =  exp_sin_custom_io(leds[0]->steps);
+    bness = leds[0]->breathe_easing(leds[0]->steps);
     for (idx = 0; idx < led_array.len; idx++)
     {
         leds[idx]->brightness = bness;
@@ -103,7 +104,8 @@ breathe_array_unsync_cb(struct os_event *ev)
         }
 
         leds[idx]->steps += (leds[0]->breathe_up) ? 1 : -1;
-        leds[idx]->brightness = exp_sin_custom_io(leds[idx]->steps);;
+        /* leds[idx]->brightness = exp_sin_custom_io(leds[idx]->steps); */
+        leds[idx]->brightness = leds[idx]->breathe_easing(leds[idx]->steps);
         set_color_with_brightness(leds[idx]);
     }
     os_callout_reset(&leds[0]->c_array_breathe_unsync,
@@ -170,6 +172,10 @@ init_rgb_led(struct pwm_dev *dev,
         return NULL;
     }
 
+    if (c_rgbled_evq == NULL) {
+        return NULL;
+    }
+
     struct rgb_led* led = (struct rgb_led*) calloc(1, sizeof(struct rgb_led));
     led->dev = dev;
     led->max_val = top_val;
@@ -177,8 +183,8 @@ init_rgb_led(struct pwm_dev *dev,
     led->g_chan = g_chan;
     led->b_chan = b_chan;
     led->brightness = MAX_BNESS / 2; /* brightness defaults to 50% */
+    led->breathe_easing = exp_sin_custom_io;
 
-    /* TODO: add some checking for a null evq pointer */
     os_callout_init(&(led->c_rgbled_breathe),
                     c_rgbled_evq,
                     breathe_cb,
@@ -198,12 +204,39 @@ init_rgb_led(struct pwm_dev *dev,
     return led;
 }
 
+/**
+ * Set the easing function to be used on a given RGB LED.
+ *
+ * @param led The struct rgb_led structure.
+ * @param func The easing_funt_t, easing function.
+ */
+void
+rgb_led_set_easing(struct rgb_led *led, easing_func_t func)
+{
+    led->breathe_easing = func;
+}
+
+/**
+ * Set brightness level from 0 to 255.
+ *
+ * @param led The struct rgb_led structure.
+ * @param bness The brightness level.
+ */
 void
 rgb_led_set_bness(struct rgb_led *led, uint8_t bness)
 {
     led->brightness = (bness < MAX_BNESS) ? bness : MAX_BNESS;
     set_color_with_brightness(led);
 }
+
+/**
+ * Get brightness level.
+ *
+ * @param led The struct rgb_led structure.
+ *
+ * @return The brightness level.
+ */
+uint8_t rgb_led_get_bness(struct rgb_led *led);
 
 uint8_t
 rgb_led_get_bness(struct rgb_led *led)

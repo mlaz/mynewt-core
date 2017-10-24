@@ -1,5 +1,8 @@
 #include <stdint.h>
 
+#ifndef _EASING_
+#define _EASING_
+
 #ifndef MAX_VAL
 #define MAX_VAL 255
 #endif /* MAX_BNESS */
@@ -11,6 +14,8 @@
 #define HALF_PI 1.57079632679f   /* PI/2 */
 #define ONE_DIV_E 0.36787944117f /* 1/e */
 #define PI_TIMES2 6.28318530718f  /* 2PI */
+
+typedef uint32_t (*easing_func_t)(float step);
 
 /* Custom, used for breathing */
 uint32_t exponential_custom_io(float step);
@@ -64,3 +69,5 @@ uint32_t bounce_io(int step);
 uint32_t back_in(int step);
 uint32_t back_out(int step);
 uint32_t back_io(int step);
+
+#endif /* _EASING_ */

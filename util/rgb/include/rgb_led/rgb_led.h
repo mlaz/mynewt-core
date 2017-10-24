@@ -31,7 +31,9 @@
 
 #include <pwm/pwm.h>
 #include <os/os.h>
-#include "os/os_callout.h"
+#include <os/os_callout.h>
+
+#include "easing/easing.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +45,7 @@ struct rgb_led {
     struct os_callout c_array_breathe;
     struct os_callout c_array_breathe_unsync;
     struct os_callout c_rgbled_fade;
+    easing_func_t breathe_easing;
     uint32_t steps;
     uint16_t max_val; /* Color component maximum value. */
     uint8_t mode; /* may be either FIXED, FADE or BREATHE. */
@@ -83,6 +86,14 @@ struct rgb_led* init_rgb_led(struct pwm_dev *dev,
                              uint8_t b_chan);
 
 /**
+ * Set the easing function to be used on a given RGB LED.
+ *
+ * @param led The struct rgb_led structure.
+ * @param func The easing_funt_t, easing function.
+ */
+void rgb_led_set_easing(struct rgb_led *led, easing_func_t func);
+
+/**
  * Set brightness level from 0 to 255.
  *
  * @param led The struct rgb_led structure.
@@ -99,7 +110,7 @@ void rgb_led_set_bness(struct rgb_led *led, uint8_t bness);
 /* void rgb_fade_to_bness(struct rgb_led *led, uint8_t bness); */
 
 /**
- * Set brightness level from 0 to 255.
+ * Get brightness level.
  *
  * @param led The struct rgb_led structure.
  *
