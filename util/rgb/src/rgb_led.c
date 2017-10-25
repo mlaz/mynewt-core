@@ -54,9 +54,9 @@ breathe_cb(struct os_event *ev)
     }
     led->steps += (led->breathe_up) ? 1 : -1;
 
-    led->brightness = led->breathe_easing(led->steps);
-    /* led->brightness = exp_sin_custom_io(led->steps); */
-    /* console_printf("\nbness = %d, steps = %u\n", led->brightness, led->steps); */
+    led->brightness = (uint8_t) led->breathe_easing(led->steps);
+    console_printf("\nbness = %u, steps = %lu\n", led->brightness, led->steps);
+
     set_color_with_brightness(led);
     os_callout_reset(&led->c_rgbled_breathe, led->interval_ticks);
 }
@@ -68,7 +68,7 @@ static void
 breathe_array_cb(struct os_event *ev)
 {
     uint32_t idx;
-    uint16_t bness;
+    uint8_t bness;
     struct rgb_led** leds = led_array.array; //FIXME!
 
     if (leds[0]->steps >= BREATHE_STEPS || leds[0]->steps == 0) {
@@ -77,7 +77,7 @@ breathe_array_cb(struct os_event *ev)
 
     leds[0]->steps += (leds[0]->breathe_up) ? 1 : -1;
 
-    bness = leds[0]->breathe_easing(leds[0]->steps);
+    bness = (uint8_t) leds[0]->breathe_easing(leds[0]->steps);
     for (idx = 0; idx < led_array.len; idx++)
     {
         leds[idx]->brightness = bness;
@@ -104,8 +104,10 @@ breathe_array_unsync_cb(struct os_event *ev)
         }
 
         leds[idx]->steps += (leds[0]->breathe_up) ? 1 : -1;
-        /* leds[idx]->brightness = exp_sin_custom_io(leds[idx]->steps); */
-        leds[idx]->brightness = leds[idx]->breathe_easing(leds[idx]->steps);
+        leds[idx]->brightness = (uint8_t) leds[idx]->breathe_easing(leds[idx]->steps);
+        console_printf("\nbness = %d, steps = %lu\n",
+                       leds[idx]->brightness,
+                       leds[idx]->steps);
         set_color_with_brightness(leds[idx]);
     }
     os_callout_reset(&leds[0]->c_array_breathe_unsync,

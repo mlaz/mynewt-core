@@ -25,7 +25,7 @@
 #endif /* MAX_BNESS */
 
 #ifndef BREATHE_STEPS
-#define BREATHE_STEPS 200
+#define BREATHE_STEPS 100
 #endif /* BREATHE_STEPS */
 
 

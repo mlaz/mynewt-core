@@ -30,5 +30,3 @@ pkg.deps:
     - hw/drivers/pwm
     - hw/drivers/pwm/soft_pwm
     - util/rgb
-
-#    - "@mynewt_nordic/hw/drivers/pwm/pwm_nrf52"

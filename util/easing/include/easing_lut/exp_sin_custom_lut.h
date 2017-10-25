@@ -1,0 +1,123 @@
+#ifndef __EASING__
+
+#ifndef MAX_VAL
+#define MAX_VAL 255
+#endif /* MAX_VAL */
+
+#ifndef MAX_STEPS
+#define MAX_STEPS 100
+#endif /* MAX_STEPS */
+
+#endif /* __EASING__ */
+
+#ifndef __EXP_SIN_CUSTOM_EASING_LUT__
+#define __EXP_SIN_CUSTOM_EASING_LUT__
+
+uint32_t exp_sin_custom_lut[MAX_STEPS] = { 255,
+                                           254,
+                                           254,
+                                           253,
+                                           252,
+                                           251,
+                                           249,
+                                           247,
+                                           245,
+                                           243,
+                                           240,
+                                           238,
+                                           235,
+                                           231,
+                                           228,
+                                           224,
+                                           220,
+                                           216,
+                                           212,
+                                           208,
+                                           203,
+                                           199,
+                                           194,
+                                           189,
+                                           184,
+                                           180,
+                                           175,
+                                           170,
+                                           165,
+                                           160,
+                                           155,
+                                           150,
+                                           145,
+                                           140,
+                                           135,
+                                           130,
+                                           126,
+                                           121,
+                                           116,
+                                           112,
+                                           107,
+                                           103,
+                                           99,
+                                           95,
+                                           90,
+                                           86,
+                                           83,
+                                           79,
+                                           75,
+                                           72,
+                                           68,
+                                           65,
+                                           61,
+                                           58,
+                                           55,
+                                           52,
+                                           50,
+                                           47,
+                                           44,
+                                           42,
+                                           39,
+                                           37,
+                                           35,
+                                           33,
+                                           30,
+                                           28,
+                                           27,
+                                           25,
+                                           23,
+                                           21,
+                                           20,
+                                           18,
+                                           17,
+                                           16,
+                                           14,
+                                           13,
+                                           12,
+                                           11,
+                                           10,
+                                           9,
+                                           8,
+                                           7,
+                                           6,
+                                           5,
+                                           5,
+                                           4,
+                                           3,
+                                           3,
+                                           2,
+                                           2,
+                                           2,
+                                           1,
+                                           1,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+};
+
+uint32_t exp_sin_custom_lut_io(int step)
+{
+    return exp_sin_custom_lut[step];
+}
+
+#endif /* __EXP_SIN_CUSTOM_EASING_LUT__ */

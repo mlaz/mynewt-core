@@ -3,18 +3,18 @@
 
 static float R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
 
-uint32_t exponential_custom_io(float step)
+uint32_t exponential_custom_io(int step)
 {
-    return powf(2, (step / R)) - 1;
+    return powf(2, ((float)step / R)) - 1;
 }
 
 static float mplier = MAX_VAL / 2.35040238729f; /* MAX_VAL / */
 static float pi_d_maxs = M_PI / MAX_STEPS;
 
 /* http://www.wolframalpha.com/input/?i=(exp(sin(x%2F100pi%2Bpi%2F2))+-+1%2Fe)+*+255%2F(e-1%2Fe) */
-uint32_t exp_sin_custom_io(float step)
+uint32_t exp_sin_custom_io(int step)
 {
-    return ( exp( sin((step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
+    return ( exp( sin(((float)step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
 }
 
 /* https://www.wolframalpha.com/input/?i=255+*+cos((2pi+*+x%2F100)+%2B+pi)+%2B+255 */

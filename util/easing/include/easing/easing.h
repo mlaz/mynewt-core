@@ -5,21 +5,21 @@
 
 #ifndef MAX_VAL
 #define MAX_VAL 255
-#endif /* MAX_BNESS */
+#endif /* MAX_VAL */
 
 #ifndef MAX_STEPS
-#define MAX_STEPS 100
+#define MAX_STEPS 200
 #endif /* MAX_STEPS */
 
 #define HALF_PI 1.57079632679f   /* PI/2 */
 #define ONE_DIV_E 0.36787944117f /* 1/e */
 #define PI_TIMES2 6.28318530718f  /* 2PI */
 
-typedef uint32_t (*easing_func_t)(float step);
+typedef uint32_t (*easing_func_t)(int step);
 
 /* Custom, used for breathing */
-uint32_t exponential_custom_io(float step);
-uint32_t exp_sin_custom_io(float step);
+uint32_t exponential_custom_io(int step);
+uint32_t exp_sin_custom_io(int step);
 uint32_t sine_custom_io(int step);
 
 /* Linear */

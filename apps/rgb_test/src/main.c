@@ -23,6 +23,8 @@
 #include <console/console.h>
 
 #include <rgb_led/rgb_led.h>
+#include <easing_lut/expon_custom_lut.h>
+#include <easing_lut/exp_sin_custom_lut.h>
 
 /* Define task stack and task object */
 #define RGBLED_PRI (0)
@@ -37,7 +39,7 @@ static uint16_t top_val;
 
 enum breathe {SYNCH, UNSYNC_MULTI_CO, UNSYNC_SINGLE_CO};
 
-#define BREATHE UNSYNC_MULTI_CO
+#define BREATHE UNSYNC_SINGLE_CO
 
 void
 rgbled_task_handler(void *arg)
@@ -57,6 +59,20 @@ rgbled_task_handler(void *arg)
     rgb_led_set_color(leds[4], 127, 30, 127);
     rgb_led_set_color(leds[5], 127, 30, 127);
 
+    rgb_led_set_easing(leds[0], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[1], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[2], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[3], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[4], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[5], exp_sin_custom_lut_io);
+
+    /* rgb_led_set_easing(leds[0], expon_custom_lut_io); */
+    /* rgb_led_set_easing(leds[1], expon_custom_lut_io); */
+    /* rgb_led_set_easing(leds[2], expon_custom_lut_io); */
+    /* rgb_led_set_easing(leds[3], expon_custom_lut_io); */
+    /* rgb_led_set_easing(leds[4], expon_custom_lut_io); */
+    /* rgb_led_set_easing(leds[5], expon_custom_lut_io); */
+
 #if BREATHE == UNSYNCH_MULTI_CO
     /* rgb_led_breathe(leds[0], 5000); */
     /* rgb_led_breathe_delayed(leds[1], 5000, 2500); */
@@ -74,27 +90,28 @@ rgbled_task_handler(void *arg)
     rgb_led_breathe_delayed(leds[5], 6000, 500);
 
 #elif BREATHE == UNSYNCH_SINGLE_CO
-    uint32_t start_steps[6];
-    start_steps[0] = 0;
-    start_steps[1] = 250;
-    start_steps[2] = 150;
-    start_steps[3] = 50;
-    start_steps[4] = 330;
-    start_steps[5] = 90;
+    /* uint32_t start_steps[6]; */
+    /* start_steps[0] = 0; */
+    /* start_steps[1] = 250; */
+    /* start_steps[2] = 150; */
+    /* start_steps[3] = 50; */
+    /* start_steps[4] = 330; */
+    /* start_steps[5] = 90; */
 
     /* Making the fade pass along the LEDs */
     /* This example doesn't work as expected using this method */
-    /* uint32_t start_steps[6]; */
-    /* start_steps[0] = 0; */
-    /* start_steps[1] = 10; */
-    /* start_steps[2] = 20; */
-    /* start_steps[3] = 30; */
-    /* start_steps[4] = 40; */
-    /* start_steps[5] = 50; */
+    uint32_t start_steps[6];
+    start_steps[0] = 0;
+    start_steps[1] = 10;
+    start_steps[2] = 20;
+    start_steps[3] = 30;
+    start_steps[4] = 40;
+    start_steps[5] = 50;
 
     rgb_led_breathe_unsync_array(leds, start_steps, 6, 6500);
 #else
     rgb_led_breathe_array(leds, 6, 6500);
+    /* rgb_led_breathe(led, 6000) */
 #endif
 
     while(1) {
