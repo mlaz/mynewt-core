@@ -5,7 +5,7 @@ static float R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
 
 uint32_t exponential_custom_io(int step)
 {
-    return powf(2, ((float)step / R)) - 1;
+    return pow(2, (step / R)) - 1;
 }
 
 static float mplier = MAX_VAL / 2.35040238729f; /* MAX_VAL / */
