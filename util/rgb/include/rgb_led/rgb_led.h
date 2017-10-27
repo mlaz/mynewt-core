@@ -20,20 +20,19 @@
 #ifndef RGB_LED_H
 #define RGB_LED_H
 
-#ifndef MAX_BNESS
-#define MAX_BNESS 255
-#endif /* MAX_BNESS */
-
-#ifndef BREATHE_STEPS
-#define BREATHE_STEPS 100
-#endif /* BREATHE_STEPS */
-
-
 #include <pwm/pwm.h>
 #include <os/os.h>
 #include <os/os_callout.h>
 
 #include "easing/easing.h"
+
+#ifndef MAX_BNESS
+#define MAX_BNESS 255
+#endif /* MAX_BNESS */
+
+#ifndef BREATHE_STEPS
+#define BREATHE_STEPS MAX_STEPS
+#endif /* BREATHE_STEPS */
 
 #ifdef __cplusplus
 extern "C" {
