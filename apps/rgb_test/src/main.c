@@ -38,12 +38,18 @@ static struct pwm_dev *pwm;
 
 static uint16_t top_val;
 
-enum breathe {SYNCH, UNSYNC_MULTI_CO, UNSYNC_SINGLE_CO};
-enum easing {EXPON_CUST, EXP_SIN_CUST, EXPON_CUST_LUT, EXP_SIN_CUST_LUT};
+#define UNSYNC_SINGLE_CO 0
+#define UNSYNC_MULTI_CO 1
+#define SYNCH 2
+
+#define EXPON_CUST_LUT 3
+#define EXPON_CUST 4
+#define EXP_SIN_CUST_LUT 5
+#define EXP_SIN_CUST 6
 
 
-#define BREATHE SYNCH
-#define EASING EXPON_CUST_LUT
+#define BREATHE UNSYNC_MULTI_CO
+#define EASING EXP_SIN_CUST_LUT
 
 void
 rgbled_task_handler(void *arg)
@@ -64,30 +70,32 @@ rgbled_task_handler(void *arg)
     rgb_led_set_color(leds[4], 127, 30, 127);
     rgb_led_set_color(leds[5], 127, 30, 127);
 
-#if EASING == EXPON_CUST
-    rgb_led_set_easing(leds[0], exponential_custom_io);
-    rgb_led_set_easing(leds[1], exponential_custom_io);
-    rgb_led_set_easing(leds[2], exponential_custom_io);
-    rgb_led_set_easing(leds[3], exponential_custom_io);
-    rgb_led_set_easing(leds[4], exponential_custom_io);
-    rgb_led_set_easing(leds[5], exponential_custom_io);
-#elif EASING == EXP_SIN_CUST_LUT
-    rgb_led_set_easing(leds[0], exp_sin_custom_lut_io);
-    rgb_led_set_easing(leds[1], exp_sin_custom_lut_io);
-    rgb_led_set_easing(leds[2], exp_sin_custom_lut_io);
-    rgb_led_set_easing(leds[3], exp_sin_custom_lut_io);
-    rgb_led_set_easing(leds[4], exp_sin_custom_lut_io);
-    rgb_led_set_easing(leds[5], exp_sin_custom_lut_io);
-#elif EASING == EXP_SIN_CUST_LUT
+#if EASING == 3 /* EXPON_CUST_LUT */
     rgb_led_set_easing(leds[0], expon_custom_lut_io);
     rgb_led_set_easing(leds[1], expon_custom_lut_io);
     rgb_led_set_easing(leds[2], expon_custom_lut_io);
     rgb_led_set_easing(leds[3], expon_custom_lut_io);
     rgb_led_set_easing(leds[4], expon_custom_lut_io);
     rgb_led_set_easing(leds[5], expon_custom_lut_io);
+
+#elif EASING == 4 /* EXPON_CUST */
+    rgb_led_set_easing(leds[0], exponential_custom_io);
+    rgb_led_set_easing(leds[1], exponential_custom_io);
+    rgb_led_set_easing(leds[2], exponential_custom_io);
+    rgb_led_set_easing(leds[3], exponential_custom_io);
+    rgb_led_set_easing(leds[4], exponential_custom_io);
+    rgb_led_set_easing(leds[5], exponential_custom_io);
+
+#elif EASING == 5 /* EXP_SIN_CUST_LUT */
+    rgb_led_set_easing(leds[0], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[1], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[2], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[3], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[4], exp_sin_custom_lut_io);
+    rgb_led_set_easing(leds[5], exp_sin_custom_lut_io);
 #endif /* exp_sin_custom is the default easing function for breathing */
 
-#if BREATHE == UNSYNCH_MULTI_CO
+#if (BREATHE == 0) /* UNSYNC_MULTIPLE_CO */
     rgb_led_breathe_delayed(leds[0], 5000, 4000);
     rgb_led_breathe_delayed(leds[1], 5000, 2500);
     rgb_led_breathe_delayed(leds[2], 5000, 3800);
@@ -103,7 +111,7 @@ rgbled_task_handler(void *arg)
     /* rgb_led_breathe_delayed(leds[4], 6000, 400); */
     /* rgb_led_breathe_delayed(leds[5], 6000, 500); */
 
-#elif BREATHE == UNSYNCH_SINGLE_CO
+#elif (BREATHE == 1) /* UNSYNC_SINGLE_CO */
     uint32_t start_steps[6];
     start_steps[0] = 0;
     start_steps[1] = 250;
@@ -121,11 +129,12 @@ rgbled_task_handler(void *arg)
     /* start_steps[4] = 40; */
     /* start_steps[5] = 50; */
 
-    rgb_led_breathe_unsync_array(leds, start_steps, 6, 1000);
-#elif BREATHE == SYNCH
-    rgb_led_breathe_array(leds, 6, 3000);
-    /* rgb_led_breathe(led, 6000) */
-#endif
+    rgb_led_breathe_unsync_array(leds, start_steps, 6, 5000);
+
+#elif (BREATHE == 2) /* SYNCH */
+    /* rgb_led_breathe_array(leds, 6, 5000); */
+ 
+#endif /* BREATHE */
 
     while(1) {
         os_eventq_run(&c_rgbled_evq);
