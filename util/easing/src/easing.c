@@ -1,7 +1,7 @@
-#include "easing/easing.h"
+#include "easing.h"
 #include <math.h>
 
-static float R = (MAX_STEPS * log10(2)) / (log10(MAX_VAL));
+static float R = MAX_STEPS * log10(2) / log10(MAX_VAL);
 
 uint32_t exponential_custom_io(int step)
 {
@@ -14,7 +14,7 @@ static float pi_d_maxs = M_PI / MAX_STEPS;
 /* http://www.wolframalpha.com/input/?i=(exp(sin(x%2F100pi%2Bpi%2F2))+-+1%2Fe)+*+255%2F(e-1%2Fe) */
 uint32_t exp_sin_custom_io(int step)
 {
-    return ( exp( sin(((float)step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
+    return ( exp( sin((step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
 }
 
 /* https://www.wolframalpha.com/input/?i=255+*+cos((2pi+*+x%2F100)+%2B+pi)+%2B+255 */
@@ -52,19 +52,19 @@ uint32_t exponential_in(int step)
 {
     return (step == 0) ?
         0 :
-        MAX_VAL * pow(2, 10 * (step / MAX_STEPS - 1));
+        pow(MAX_VAL, (float)step/MAX_STEPS);
 }
 
 uint32_t exponential_out(int step)
 {
 	return (step == MAX_STEPS) ?
         MAX_VAL :
-        MAX_VAL * ( -pow (2, -10 * step / MAX_STEPS) + 1);
+        MAX_VAL - pow(MAX_VAL, 1.0 - (float)step/MAX_STEPS); 
 }
 
 uint32_t exponential_io(int step)
 {
-	float ratio = ( step / (MAX_STEPS / 2.0) ) - 1;
+	float ratio = ( (float)step / (MAX_STEPS / 2.0) );
 
 	if (step == 0)
 		return 0;
@@ -73,15 +73,15 @@ uint32_t exponential_io(int step)
 		return MAX_VAL;
 
 	if (ratio < 1)
-		return MAX_VAL / 2 * pow(2, 10 * (ratio));
+        return powf((float)MAX_VAL/2.0, (float)step/(MAX_STEPS/2.0));
 
-	return MAX_VAL / 2 * (-pow(2, -10 * ratio) + 2);
+	return MAX_VAL - pow(MAX_VAL, 1.0 - (float)step/MAX_STEPS);
 }
 
 /* Quadratic */
 uint32_t quadratic_in(int step)
 {
-	float ratio = step / MAX_STEPS;
+	float ratio = (float) step / MAX_STEPS;
 
 	return MAX_VAL * pow(ratio, 2);
 }
@@ -98,10 +98,10 @@ uint32_t quadratic_io(int step)
 	float ratio = step / (MAX_STEPS / 2.0);
 
 	if (ratio < 1)
-		return MAX_VAL / 2 * pow(ratio, 2);
+		return MAX_VAL / 2.0 * pow(ratio, 2);
 
     ratio--;
-	return -MAX_VAL / 2 * (ratio * (ratio - 2) - 1);
+	return (-MAX_VAL / 2.0) * (ratio * (ratio - 1) - 1);
 }
 
 /* Cubic */
@@ -115,7 +115,7 @@ uint32_t cubic_in(int step)
 uint32_t cubic_out(int step)
 {
 	float ratio = step / (MAX_STEPS - 1.0);
-	
+
 	return MAX_VAL * (pow(ratio, 3) + 1);
 }
 
