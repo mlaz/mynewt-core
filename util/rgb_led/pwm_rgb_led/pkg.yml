@@ -17,12 +17,17 @@
 # under the License.
 #
 
-pkg.name: util/rgb
-pkg.description: Library containing miscellaneous utilities.
-pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
+pkg.name: util/rgb_led/pwm_rgb_led
+pkg.description: PWM driven RGB LED implementation.
+pkg.author: "Apache Mynewt <dev@mynewt.incubator.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
     - rgb
+    - led
+    - pwm
+
+pkg.apis:
+    - RGB_LED_IMPL
 
 pkg.deps:
-    - util/easing
+   - "@apache-mynewt-core/hw/drivers/pwm"

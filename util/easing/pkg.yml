@@ -18,10 +18,11 @@
 #
 
 pkg.name: util/easing
-pkg.description: Library containing encoding functions
+pkg.description: Library containing easing functions
 pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
     - easing
 
-pkg.cflags: -lm
+pkg.cflags:
+    - "-lm"
