@@ -17,6 +17,7 @@ uint32_t exp_sin_custom_io(int step, int max_steps, int max_val)
 {
     float mplier = max_val / 2.35040238729f;
     float pi_d_maxs = M_PI / max_steps;
+    step += max_steps;
     return ( exp( sin((step * pi_d_maxs) + M_PI_2)) - ONE_DIV_E ) * mplier;
 }
 

@@ -29,12 +29,14 @@ update_color(struct rgb_led *led)
 static void
 breathe_cb(struct os_event *ev)
 {
+    console_printf("HERE!\n");
     assert(ev != NULL);
 
     struct rgb_led* led = ev->ev_arg;
     struct led_motion* motion = (struct led_motion*) led;
 
-    if (motion->steps >= motion->breathe_max || motion->steps == motion->breathe_min) {
+    if (motion->steps >= motion->breathe_max ||
+        motion->steps == motion->breathe_min) {
         motion->breathe_up = ! motion->breathe_up;
     }
     motion->steps += (motion->breathe_up) ? 1 : -1;
@@ -43,7 +45,7 @@ breathe_cb(struct os_event *ev)
                                                BREATHE_STEPS,
                                                MAX_BNESS);
     update_color(led);
-    /* console_printf("\nbness = %u, steps = %lu\n", led->brightness, led->steps); */
+    console_printf("\nbness = %u, steps = %lu\n", led->brightness, motion->steps);
 
     os_callout_reset(&motion->c_rgbled_breathe, motion->interval_ticks);
 }
@@ -72,7 +74,7 @@ fade_cb(struct os_event *ev)
                                                motion->max_steps,
                                                MAX_BNESS);
     update_color(led);
-    /* console_printf("\nbness = %u, steps = %lu\n", led->brightness, led->steps); */
+    console_printf("\nbness = %u, steps = %lu\n", led->brightness, motion->steps);
 
     if (led->brightness < motion->target_bness &&
         motion->steps < (motion->max_steps)) {
@@ -284,8 +286,8 @@ rgb_led_breathe_delayed(struct rgb_led *led,
                         uint32_t max_bness,
                         uint32_t min_bness)
 {
+    console_printf("HERE!\n");
     struct led_motion* motion = (struct led_motion*) led;
-
     motion->breathe_up = true;
     motion->steps = 1;
     motion->breathe_max = max_bness;
