@@ -21,12 +21,8 @@
 #define __MCU_CORTEX_M4_H__
 
 #include "syscfg/syscfg.h"
+#include "nrf.h"
 
-#ifdef NRF52840_XXAA
-#include "nrf52840.h"
-#else
-#include "nrf52.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {

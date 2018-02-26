@@ -59,6 +59,14 @@ const struct hal_flash nrf52k_flash_dev = {
     .hf_sector_cnt = 128,	/* XXX read from factory info? */
     .hf_align = 1
 };
+#elif defined(NRF52810_XXAA)
+const struct hal_flash nrf52k_flash_dev = {
+    .hf_itf = &nrf52k_flash_funcs,
+    .hf_base_addr = 0x00000000,
+    .hf_size = 192 * 1024,	/* XXX read from factory info? */
+    .hf_sector_cnt = 48,	/* XXX read from factory info? */
+    .hf_align = 1
+};
 #else
 #error "Must define hal_flash struct for NRF52 type"
 #endif
