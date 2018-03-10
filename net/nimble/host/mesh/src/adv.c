@@ -1,6 +1,7 @@
 /*  Bluetooth Mesh */
 
 /*
+ * Copyright (c) 2018 Nordic Semiconductor ASA
  * Copyright (c) 2017 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -23,25 +24,28 @@
 #include "prov.h"
 #include "proxy.h"
 
-/* Window and Interval are equal for continuous scanning */
-#define MESH_SCAN_INTERVAL 0x10
-#define MESH_SCAN_WINDOW   0x10
-
 /* Convert from ms to 0.625ms units */
-#define ADV_INT(_ms) ((_ms) * 8 / 5)
+#define ADV_SCAN_UNIT(_ms) ((_ms) * 8 / 5)
+
+/* Window and Interval are equal for continuous scanning */
+#define MESH_SCAN_INTERVAL_MS 10
+#define MESH_SCAN_WINDOW_MS   10
+#define MESH_SCAN_INTERVAL    ADV_SCAN_UNIT(MESH_SCAN_INTERVAL_MS)
+#define MESH_SCAN_WINDOW      ADV_SCAN_UNIT(MESH_SCAN_WINDOW_MS)
 
 /* Pre-5.0 controllers enforce a minimum interval of 100ms
  * whereas 5.0+ controllers can go down to 20ms.
  */
-#define ADV_INT_DEFAULT  K_MSEC(100)
-#define ADV_INT_FAST     K_MSEC(20)
+#define ADV_INT_DEFAULT_MS 100
+#define ADV_INT_FAST_MS    20
 
-static s32_t adv_int_min =  ADV_INT_DEFAULT;
+static s32_t adv_int_min =  ADV_INT_DEFAULT_MS;
 
 /* TinyCrypt PRNG consumes a lot of stack space, so we need to have
  * an increased call stack whenever it's used.
  */
 #define ADV_STACK_SIZE 768
+OS_TASK_STACK_DEFINE(g_blemesh_stack, ADV_STACK_SIZE);
 
 struct os_task adv_task;
 static struct os_eventq adv_queue;
@@ -55,9 +59,10 @@ struct os_mbuf_pool adv_os_mbuf_pool;
 static struct os_mempool adv_buf_mempool;
 
 static const u8_t adv_type[] = {
-	[BT_MESH_ADV_PROV] = BLE_HS_ADV_TYPE_MESH_PROV,
-	[BT_MESH_ADV_DATA] = BLE_HS_ADV_TYPE_MESH_MESSAGE,
+	[BT_MESH_ADV_PROV]   = BLE_HS_ADV_TYPE_MESH_PROV,
+	[BT_MESH_ADV_DATA]   = BLE_HS_ADV_TYPE_MESH_MESSAGE,
 	[BT_MESH_ADV_BEACON] = BLE_HS_ADV_TYPE_MESH_BEACON,
+	[BT_MESH_ADV_URI]    = BLE_HS_ADV_TYPE_URI,
 };
 
 
@@ -96,7 +101,7 @@ static inline void adv_send(struct os_mbuf *buf)
 	int err;
 
 	adv_int = max(adv_int_min, adv->adv_int);
-	duration = (adv->count + 1) * (adv_int + 10);
+	duration = MESH_SCAN_WINDOW_MS + (adv->count + 1) * (adv_int + 10);
 
 	BT_DBG("buf %p, type %u len %u:", buf, adv->type,
 	       buf->om_len);
@@ -107,7 +112,7 @@ static inline void adv_send(struct os_mbuf *buf)
 	ad.data_len = buf->om_len;
 	ad.data = buf->om_data;
 
-	param.itvl_min = ADV_INT(adv_int);
+	param.itvl_min = ADV_SCAN_UNIT(adv_int);
 	param.itvl_max = param.itvl_min;
 	param.conn_mode = BLE_GAP_CONN_MODE_NON;
 
@@ -121,7 +126,7 @@ static inline void adv_send(struct os_mbuf *buf)
 
 	BT_DBG("Advertising started. Sleeping %u ms", duration);
 
-	os_time_delay(OS_TICKS_PER_SEC * duration / 1000);
+	k_sleep(K_MSEC(duration));
 
 	err = bt_le_adv_stop();
 	adv_send_end(err, cb, cb_data);
@@ -290,11 +295,7 @@ static void bt_mesh_scan_cb(const bt_addr_le_t *addr, s8_t rssi,
 
 void bt_mesh_adv_init(void)
 {
-	os_stack_t *pstack;
 	int rc;
-
-	pstack = malloc(sizeof(os_stack_t) * ADV_STACK_SIZE);
-	assert(pstack);
 
 	rc = os_mempool_init(&adv_buf_mempool, MYNEWT_VAL(BLE_MESH_ADV_BUF_COUNT),
 			     BT_MESH_ADV_DATA_SIZE + BT_MESH_MBUF_HEADER_SIZE,
@@ -309,12 +310,12 @@ void bt_mesh_adv_init(void)
 	os_eventq_init(&adv_queue);
 
 	os_task_init(&adv_task, "mesh_adv", adv_thread, NULL,
-		     MYNEWT_VAL(BLE_MESH_ADV_TASK_PRIO), OS_WAIT_FOREVER, pstack,
-		     ADV_STACK_SIZE);
+	             MYNEWT_VAL(BLE_MESH_ADV_TASK_PRIO), OS_WAIT_FOREVER,
+	             g_blemesh_stack, ADV_STACK_SIZE);
 
 	/* For BT5 controllers we can have fast advertising interval */
 	if (ble_hs_hci_get_hci_version() >= BLE_HCI_VER_BCS_5_0) {
-	    adv_int_min = ADV_INT_FAST;
+	    adv_int_min = ADV_INT_FAST_MS;
 	}
 }
 

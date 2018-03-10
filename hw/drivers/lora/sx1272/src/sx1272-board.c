@@ -25,10 +25,6 @@ Maintainer: Miguel Luis and Gregory Cristian
 #error "Cannot have both SX1272_HAS_ANT_SW and SX1272_HAS_COMP_ANT_SW set true"
 #endif
 
-#if MYNEWT_VAL(SX1272_HAS_ANT_SW)
-#error "Currently not supported"
-#endif
-
 /*!
  * Flag used to set the RF switch control pins in low power mode when the radio is not active.
  */
@@ -74,8 +70,8 @@ void SX1272IoInit( void )
     int rc;
 
 #if MYNEWT_VAL(SX1272_HAS_ANT_SW)
-    rc = hal_gpio_init_out(SX1272_RXTX, 1);
-    assert(rc == 0);
+    rc = hal_gpio_init_out(SX1272_RXTX, 0);
+    assert(0);
 #endif
 
     /*
@@ -117,42 +113,42 @@ void SX1272IoIrqInit( DioIrqHandler **irqHandlers )
 
     if (irqHandlers[0] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO0, irqHandlers[0], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO0);
     }
 
     if (irqHandlers[1] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO1, irqHandlers[1], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO1);
     }
 
     if (irqHandlers[2] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO2, irqHandlers[2], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO2);
     }
 
     if (irqHandlers[3] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO3, irqHandlers[3], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO3);
     }
 
     if (irqHandlers[4] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO4, irqHandlers[4], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO4);
     }
 
     if (irqHandlers[5] != NULL) {
         rc = hal_gpio_irq_init(SX1272_DIO5, irqHandlers[5], NULL,
-                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_NONE);
+                               HAL_GPIO_TRIG_RISING, HAL_GPIO_PULL_DOWN);
         assert(rc == 0);
         hal_gpio_irq_enable(SX1272_DIO5);
     }
@@ -288,18 +284,54 @@ void SX1272SetAntSw( uint8_t opMode )
     switch( opMode )
     {
     case RFLR_OPMODE_TRANSMITTER:
+#if MYNEWT_VAL(SX1272_HAS_COMP_ANT_SW)
         hal_gpio_write(SX1272_RXTX, 0);
         hal_gpio_write(SX1272_N_RXTX, 1);
+#endif
+#if MYNEWT_VAL(SX1272_HAS_ANT_SW)
+        hal_gpio_write(SX1272_RXTX, 1);
+#endif
         break;
     case RFLR_OPMODE_RECEIVER:
     case RFLR_OPMODE_RECEIVER_SINGLE:
     case RFLR_OPMODE_CAD:
     default:
+#if MYNEWT_VAL(SX1272_HAS_COMP_ANT_SW)
         hal_gpio_write(SX1272_RXTX, 1);
         hal_gpio_write(SX1272_N_RXTX, 0);
+#endif
+#if MYNEWT_VAL(SX1272_HAS_ANT_SW)
+        hal_gpio_write(SX1272_RXTX, 0);
+#endif
         break;
     }
     OS_EXIT_CRITICAL(sr);
+}
+#else
+void SX1272SetAntSwLowPower( bool status )
+{
+    (void)status;
+}
+
+void SX1272AntSwInit( void )
+{
+    /*
+     * XXX: consider doing this to save power. Currently the gpio are
+     * set to rx mode automatically in the IO init function.
+     */
+}
+
+void SX1272AntSwDeInit( void )
+{
+    /*
+     * XXX: consider doing this to save power. Currently the gpio are
+     * set to rx mode automatically in the IO init function.
+     */
+}
+
+void SX1272SetAntSw( uint8_t opMode )
+{
+    (void)opMode;
 }
 #endif
 
