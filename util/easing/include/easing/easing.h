@@ -29,7 +29,7 @@ float quadratic_f_io(float step, float max_steps, float max_val);
 /* Cubic */
 float cubic_f_in(float step, float max_steps, float max_val);
 float cubic_f_out(float step, float max_steps, float max_val);
-float cubic_f_int_io(float step, float max_steps, float max_val);
+float cubic_f_io(float step, float max_steps, float max_val);
 
 /* Quartic */
 float quartic_f_in(float step, float max_steps, float max_val);

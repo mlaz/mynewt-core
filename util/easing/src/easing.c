@@ -343,7 +343,7 @@ cubic_f_out(float step, float max_steps, float max_val)
     return cubic_out(step, max_steps, max_val);
 }
 float
-cubic_f_int_io(float step, float max_steps, float max_val)
+cubic_f_io(float step, float max_steps, float max_val)
 {
     return cubic_io(step, max_steps, max_val);
 }
