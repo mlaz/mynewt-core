@@ -100,9 +100,9 @@ static inline float cubic_in(float step, float max_steps, float max_val)
 
 static inline float cubic_out(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps - 1.0f);
+	float ratio = step / max_steps - 1.0f;
 
-	return max_val * ((ratio * ratio * ratio) + 1);
+	return max_val + max_val * (ratio * ratio * ratio);
 }
 
 static inline float cubic_io(float step, float max_steps, float max_val)
