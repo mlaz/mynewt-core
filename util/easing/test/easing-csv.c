@@ -30,20 +30,23 @@
  * line, the easing function name, it's direction (in, out, io), type api
  * type (float, int) and then the step/value pair.
  *
- * See easing-plot.R for an example.
+ * Specifying a tag string in the command line can be usefull when comparing
+ * the results of different implementations against each other.
+ *
+ * Note that exercising all easing functions generates an output of ~160MB,
+ * assuming 100k samples (steps) per function.
  */
 #include "easing/easing.h"
 #include <stdint.h>
 #include <stdio.h>
 
-
-# define  FUNC(x) {                             \
-    #x,                                         \
-    {x ## _f_in, x ## _f_out, x ## _f_io},      \
-    {x ## _int_in, x ## _int_out, x ## _int_io} \
-}
-
 const int32_t steps = 100000;
+
+# define  EASING_FUNC(F) {                      \
+    #F,                                         \
+    {F ## _f_in, F ## _f_out, F ## _f_io},      \
+    {F ## _int_in, F ## _int_out, F ## _int_io} \
+}
 
 typedef struct {
     const char *name;
@@ -52,14 +55,14 @@ typedef struct {
 } func_t;
 
 func_t func[] = {
-    FUNC(quadratic),
-    FUNC(cubic),
-    FUNC(quartic),
-    FUNC(quintic),
-    FUNC(circular),
-    FUNC(sine),
-    FUNC(bounce),
-    FUNC(back),
+    EASING_FUNC(quadratic),
+    EASING_FUNC(cubic),
+    EASING_FUNC(quartic),
+    EASING_FUNC(quintic),
+    EASING_FUNC(circular),
+    EASING_FUNC(sine),
+    EASING_FUNC(bounce),
+    EASING_FUNC(back),
 };
 
 const char *inout[] = {
