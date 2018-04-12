@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 #include <math.h>
 #include "easing/easing.h"
 
@@ -28,7 +46,7 @@ static inline float sine_custom_io(float step, float max_steps, float max_val)
 /* Linear */
 static inline float linear_io(float step, float max_steps, float max_val)
 {
-	return step * max_val / max_steps;
+    return step * max_val / max_steps;
 }
 
 /* Exponential */
@@ -36,55 +54,55 @@ static inline float exponential_in(float step, float max_steps, float max_val)
 {
     return (step == 0) ?
         0 :
-        pow(max_val, (float)step/max_steps);
+        pow(max_val, step/max_steps);
 }
 
 static inline float exponential_out(float step, float max_steps, float max_val)
 {
-	return (step == max_steps) ?
+    return (step == max_steps) ?
         max_val :
-        max_val - pow(max_val, 1.0f - (float)step/max_steps);
+        max_val - pow(max_val, 1.0f - step/max_steps);
 }
 
 static inline float exponential_io(float step, float max_steps, float max_val)
 {
-	float ratio = ( (float)step / (max_steps / 2.0f) );
+    float ratio = ( step / (max_steps / 2.0f) );
 
-	if (step == 0)
-		return 0;
+    if (step == 0)
+        return 0;
 
-	if (step == max_steps)
-		return max_val;
+    if (step == max_steps)
+        return max_val;
 
-	if (ratio < 1)
-        return powf((float)max_val/2.0f, (float)step/(max_steps/2.0f));
+    if (ratio < 1)
+        return powf(max_val/2.0f, step/(max_steps/2.0f));
 
-	return max_val/2.0f + max_val/2.0f -
-        pow(max_val/2.0f, 1.0f - ((float)step - (max_steps / 2)) /
+    return max_val/2.0f + max_val/2.0f -
+        pow(max_val/2.0f, 1.0f - (step - (max_steps / 2)) /
             (max_steps / 2) );
 }
 
 /* Quadratic */
 static inline float quadratic_in(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	return max_val * (ratio * ratio);
+    return max_val * (ratio * ratio);
 }
 
 static inline float quadratic_out(float step, float max_steps, float max_val)
 {
     float ratio = step / max_steps;
 
-	return -max_val * ratio * (ratio - 2.0f);
+    return -max_val * ratio * (ratio - 2.0f);
 }
 
 static inline float quadratic_io(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps / 2.0f);
+    float ratio = step / (max_steps / 2.0f);
 
-	if (ratio < 1)
-		return max_val / 2.0f * (ratio * ratio);
+    if (ratio < 1)
+        return max_val / 2.0f * (ratio * ratio);
 
     ratio = (step - (max_steps/2.0f)) / (max_steps/2.0f);
     return (max_val / 2.0f) - (max_val / 2.0f) * ratio * (ratio - 2.0f);
@@ -93,140 +111,140 @@ static inline float quadratic_io(float step, float max_steps, float max_val)
 /* Cubic */
 static inline float cubic_in(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	return max_val * (ratio * ratio * ratio);
+    return max_val * (ratio * ratio * ratio);
 }
 
 static inline float cubic_out(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps - 1.0f;
+    float ratio = step / max_steps - 1.0f;
 
-	return max_val + max_val * (ratio * ratio * ratio);
+    return max_val + max_val * (ratio * ratio * ratio);
 }
 
 static inline float cubic_io(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps / 2.0f);
+    float ratio = step / (max_steps / 2.0f);
 
-	if (ratio < 1)
-		return max_val / 2 * (ratio * ratio * ratio);
+    if (ratio < 1)
+        return max_val / 2 * (ratio * ratio * ratio);
 
     ratio -= 2;
-	return max_val / 2 * ((ratio * ratio * ratio) + 2);
+    return max_val / 2 * ((ratio * ratio * ratio) + 2);
 }
 
 /* Quartic */
 static inline float quartic_in(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	return max_val * (ratio * ratio * ratio * ratio);
+    return max_val * (ratio * ratio * ratio * ratio);
 }
 
 static inline float quartic_out(float step, float max_steps, float max_val)
 {
-	float ratio = (step / max_steps) - 1.0f;
+    float ratio = (step / max_steps) - 1.0f;
 
-	return max_val + max_val * (ratio * ratio * ratio * ratio * ratio);
+    return max_val + max_val * (ratio * ratio * ratio * ratio * ratio);
 }
 
 static inline float quartic_io(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps / 2.0f);
+    float ratio = step / (max_steps / 2.0f);
 
-	if (ratio < 1)
-		return max_val / 2 * (ratio * ratio * ratio * ratio);
+    if (ratio < 1)
+        return max_val / 2 * (ratio * ratio * ratio * ratio);
 
     ratio -= 2;
-	return max_val + max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
+    return max_val + max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
 }
 
 /* Quintic */
 static inline float quintic_in(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	return max_val * (ratio * ratio * ratio * ratio * ratio);
+    return max_val * (ratio * ratio * ratio * ratio * ratio);
 }
 
 static inline float quintic_out(float step, float max_steps, float max_val)
 {
-	float ratio = (step / max_steps) - 1.0f;
+    float ratio = (step / max_steps) - 1.0f;
 
-	return max_val + max_val * (ratio * ratio * ratio * ratio * ratio);
+    return max_val + max_val * (ratio * ratio * ratio * ratio * ratio);
 }
 
 static inline float quintic_io(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps / 2.0f);
+    float ratio = step / (max_steps / 2.0f);
 
-	if (ratio < 1)
-		return max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
+    if (ratio < 1)
+        return max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
 
     ratio -= 2;
-	return max_val + max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
+    return max_val + max_val / 2 * (ratio * ratio * ratio * ratio * ratio);
 }
 
 /* Circular */
 static inline float circular_in(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	return - max_val * (sqrt(1 - (ratio * ratio) ) - 1);
+    return - max_val * (sqrt(1 - (ratio * ratio) ) - 1);
 }
 
 static inline float circular_out(float step, float max_steps, float max_val)
 {
-	float ratio = (step - max_steps) / (max_steps - 1.0f);
-	return max_val * sqrt(1 - (ratio * ratio));
+    float ratio = (step - max_steps) / (max_steps - 1.0f);
+    return max_val * sqrt(1 - (ratio * ratio));
 }
 
 static inline float circular_io(float step, float max_steps, float max_val)
 {
-	float ratio = step / (max_steps / 2.0f);
+    float ratio = step / (max_steps / 2.0f);
 
-	if (ratio < 1)
-		return - max_val / 2 * (sqrt(1 - (ratio * ratio)) - 1);
+    if (ratio < 1)
+        return - max_val / 2 * (sqrt(1 - (ratio * ratio)) - 1);
 
     ratio -= 2;
-	return max_val / 2 * (sqrt(1 - (ratio * ratio)) + 1);
+    return max_val / 2 * (sqrt(1 - (ratio * ratio)) + 1);
 }
 
 /* Sine */
 static inline float sine_in(float step, float max_steps, float max_val)
 {
-	return -max_val * cos((float)step / max_steps * M_PI_2) + max_val;
+    return -max_val * cos(step / max_steps * M_PI_2) + max_val;
 }
 
 static inline float sine_out(float step, float max_steps, float max_val)
 {
-	return max_val * sin((((float)step / max_steps)) * M_PI_2);
+    return max_val * sin(((step / max_steps)) * M_PI_2);
 }
 
 static inline float sine_io(float step, float max_steps, float max_val)
 {
-	return -max_val / 2 * (cos(M_PI * step / max_steps) - 1);
+    return -max_val / 2 * (cos(M_PI * step / max_steps) - 1);
 }
 
 /* Bounce */
 static inline float bounce_out(float step, float max_steps, float max_val)
 {
-	float ratio = step / max_steps;
+    float ratio = step / max_steps;
 
-	if (ratio < (1 / 2.75f)) {
-		return max_val * (7.5625f * ratio * ratio);
-	}
+    if (ratio < (1 / 2.75f)) {
+        return max_val * (7.5625f * ratio * ratio);
+    }
 
     if (ratio < (2 / 2.75f)) {
         ratio -= 1.5f / 2.75f;
-		return max_val * (7.5625f * ratio * ratio + .75f);
+        return max_val * (7.5625f * ratio * ratio + .75f);
     }
 
     if (ratio < (2.5f / 2.75f)) {
         ratio -= 2.25f / 2.75f;
-		return max_val * (7.5625f * ratio * ratio + .9375f);
-	}
+        return max_val * (7.5625f * ratio * ratio + .9375f);
+    }
 
     ratio -= 2.625f / 2.75f;
     return max_val * (7.5625f * ratio * ratio + .984375f);
@@ -234,32 +252,32 @@ static inline float bounce_out(float step, float max_steps, float max_val)
 
 static inline float bounce_in(float step, float max_steps, float max_val)
 {
-	return max_val - bounce_out(max_steps - step, max_steps, max_val);
+    return max_val - bounce_out(max_steps - step, max_steps, max_val);
 }
 
 static inline float bounce_io(float step, float max_steps, float max_val)
 {
-	if (step < max_steps / 2)
-		return bounce_in(step * 2, max_steps, max_val) * 0.5f;
-	else
-		return bounce_out(step * 2 - max_steps, max_steps, max_val) *
+    if (step < max_steps / 2)
+        return bounce_in(step * 2, max_steps, max_val) * 0.5f;
+    else
+        return bounce_out(step * 2 - max_steps, max_steps, max_val) *
             0.5f + max_val * 0.5f;
 }
 
 /* Back */
 static inline float back_in(float step, float max_steps, float max_val)
 {
-	float s = 1.70158f;
+    float s = 1.70158f;
     float ratio = step / max_steps;
-	return max_val * ratio * ratio * ((s + 1) * ratio - s);
+    return max_val * ratio * ratio * ((s + 1) * ratio - s);
 
 }
 
 static inline float back_out(float step, float max_steps, float max_val)
 {
-	float s = 1.70158f;
-	float ratio = (step / max_steps) - 1;
-	return max_val * (ratio * ratio * ((s + 1) * ratio + s) + 1);
+    float s = 1.70158f;
+    float ratio = (step / max_steps) - 1;
+    return max_val * (ratio * ratio * ((s + 1) * ratio + s) + 1);
 }
 
 static inline float back_io(float step, float max_steps, float max_val)
@@ -267,11 +285,11 @@ static inline float back_io(float step, float max_steps, float max_val)
     float s = 1.70158f * 1.525f;
     float ratio = step / (max_steps / 2);
 
-	if (ratio < 1)
+    if (ratio < 1)
         return max_val / 2 * (ratio * ratio * ((s + 1) * ratio - s));
 
-	ratio -= 2;
-	return max_val / 2 * (ratio * ratio * ((s + 1) * ratio + s) + 2);
+    ratio -= 2;
+    return max_val / 2 * (ratio * ratio * ((s + 1) * ratio + s) + 2);
 }
 
 /* Float Functions */
