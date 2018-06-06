@@ -134,11 +134,11 @@ handler_0(nrfx_pwm_evt_type_t event_type, void *unused)
         instances[0].cycle_handler(instances[0].cycle_data);
         break;
 
-    case NRFX_PWM_EVT_FINISHED:
+    case NRFX_PWM_EVT_FINISHED :
         instances[0].seq_end_handler(instances[0].seq_end_data);
         break;
 
-    case NRFX_PWM_EVT_STOPPED:
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -157,11 +157,11 @@ handler_1(nrfx_pwm_evt_type_t event_type, void *unused)
         instances[1].cycle_handler(instances[1].cycle_data);
         break;
 
-    case NRFX_PWM_EVT_FINISHED:
+    case NRFX_PWM_EVT_FINISHED :
         instances[1].seq_end_handler(instances[1].seq_end_data);
         break;
 
-    case NRFX_PWM_EVT_STOPPED:
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -180,11 +180,11 @@ handler_2(nrfx_pwm_evt_type_t event_type, void *unused)
         instances[2].cycle_handler(instances[2].cycle_data);
         break;
 
-    case NRFX_PWM_EVT_FINISHED:
+    case NRFX_PWM_EVT_FINISHED :
         instances[2].seq_end_handler(instances[2].seq_end_data);
         break;
 
-    case NRFX_PWM_EVT_STOPPED:
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -203,12 +203,11 @@ handler_3(nrfx_pwm_evt_type_t event_type, void *unused)
     case NRFX_PWM_EVT_END_SEQ1:
         instances[3].cycle_handler(instances[3].cycle_data);
         break;
-
-    case NRFX_PWM_EVT_FINISHED:
+    case NRFX_PWM_EVT_FINISHED :
         instances[3].seq_end_handler(instances[3].seq_end_data);
         break;
 
-    case NRFX_PWM_EVT_STOPPED:
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
