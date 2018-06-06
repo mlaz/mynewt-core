@@ -123,9 +123,10 @@ static void handler_0(nrfx_pwm_evt_type_t event_type)
         break;
 
     case NRFX_PWM_EVT_FINISHED :
-        instances[0].playing = false;
-        nrfx_pwm_uninit(&instances[0].drv_instance);
         instances[0].seq_end_handler(instances[0].seq_end_data);
+        break;
+
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -145,9 +146,10 @@ static void handler_1(nrfx_pwm_evt_type_t event_type)
         break;
 
     case NRFX_PWM_EVT_FINISHED :
-        instances[1].playing = false;
-        nrfx_pwm_uninit(&instances[1].drv_instance);
         instances[1].seq_end_handler(instances[1].seq_end_data);
+        break;
+
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -167,9 +169,10 @@ static void handler_2(nrfx_pwm_evt_type_t event_type)
         break;
 
     case NRFX_PWM_EVT_FINISHED :
-        instances[2].playing = false;
-        nrfx_pwm_uninit(&instances[2].drv_instance);
         instances[2].seq_end_handler(instances[2].seq_end_data);
+        break;
+
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
@@ -190,9 +193,10 @@ static void handler_3(nrfx_pwm_evt_type_t event_type)
         break;
 
     case NRFX_PWM_EVT_FINISHED :
-        instances[3].playing = false;
-        nrfx_pwm_uninit(&instances[3].drv_instance);
         instances[3].seq_end_handler(instances[3].seq_end_data);
+        break;
+
+    case NRFX_PWM_EVT_STOPPED :
         break;
 
     default:
