@@ -26,14 +26,16 @@
  ******************************************************************************/
 
 #include <string.h>
-#include "ndef_utils.h"
+#include "ndef/ndef_utils.h"
 
 /*******************************************************************************
 **
 ** Static Local Functions
 */
-static UINT8 *ndef_get_bt_oob_record (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                      char *p_id_str);
+static UINT8 *ndef_get_bt_oob_record(UINT8 *p_msg,
+                                     UINT32 max_size,
+                                     UINT32 *p_cur_size,
+                                     char *p_id_str);
 
 /*******************************************************************************
 **
@@ -73,8 +75,10 @@ static UINT8 *p_wifi_wsc_rec_type = (UINT8 *)"application/vnd.wfa.wsc";
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgCreateWktHr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                  UINT8 version )
+tNDEF_STATUS ndef_msg_create_wkt_hr(UINT8 *p_msg,
+                                   UINT32 max_size,
+                                   UINT32 *p_cur_size,
+                                   UINT8 version )
 {
     tNDEF_STATUS    status;
 
@@ -97,8 +101,10 @@ tNDEF_STATUS NDEF_MsgCreateWktHr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_s
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgCreateWktHs (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                  UINT8 version )
+tNDEF_STATUS NDEF_MsgCreateWktHs(UINT8 *p_msg,
+                                 UINT32 max_size,
+                                 UINT32 *p_cur_size,
+                                 UINT8 version )
 {
     tNDEF_STATUS    status;
 
@@ -121,10 +127,15 @@ tNDEF_STATUS NDEF_MsgCreateWktHs (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_s
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddWktHc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                               char  *p_id_str, UINT8 ctf,
-                               UINT8 carrier_type_len, UINT8 *p_carrier_type,
-                               UINT8 carrier_data_len, UINT8 *p_carrier_data)
+tNDEF_STATUS NDEF_MsgAddWktHc(UINT8 *p_msg,
+                               UINT32 max_size,
+                               UINT32 *p_cur_size,
+                               char  *p_id_str,
+                               UINT8 ctf,
+                               UINT8 carrier_type_len,
+                               UINT8 *p_carrier_type,
+                               UINT8 carrier_data_len,
+                               UINT8 *p_carrier_data)
 {
     tNDEF_STATUS    status;
     UINT8           payload[256], *p, id_len;
@@ -161,9 +172,13 @@ tNDEF_STATUS NDEF_MsgAddWktHc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddWktAc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                               UINT8 cps, char *p_carrier_data_ref_str,
-                               UINT8 aux_data_ref_count, char *p_aux_data_ref_str[])
+tNDEF_STATUS nedf_msg_add_wkt_ac(UINT8 *p_msg,
+                                 UINT32 max_size,
+                                 UINT32 *p_cur_size,
+                                 UINT8 cps,
+                                 char *p_carrier_data_ref_str,
+                                 UINT8 aux_data_ref_count,
+                                 char *p_aux_data_ref_str[])
 {
     tNDEF_STATUS    status;
     UINT32          payload_len;
@@ -231,8 +246,10 @@ tNDEF_STATUS NDEF_MsgAddWktAc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddWktCr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                               UINT16 random_number )
+tNDEF_STATUS NDEF_MsgAddWktCr(UINT8 *p_msg,
+                              UINT32 max_size,
+                              UINT32 *p_cur_size,
+                              UINT16 random_number)
 {
     tNDEF_STATUS    status;
     UINT8           data[2], *p;
@@ -255,8 +272,11 @@ tNDEF_STATUS NDEF_MsgAddWktCr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddWktErr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                UINT8 error_reason, UINT32 error_data )
+tNDEF_STATUS NDEF_MsgAddWktErr(UINT8 *p_msg,
+                               UINT32 max_size,
+                               UINT32 *p_cur_size,
+                               UINT8 error_reason,
+                               UINT32 error_data)
 {
     tNDEF_STATUS    status;
     UINT8           payload[5], *p;
@@ -292,8 +312,11 @@ tNDEF_STATUS NDEF_MsgAddWktErr (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_siz
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddMediaBtOob (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                    char *p_id_str, BD_ADDR bd_addr)
+tNDEF_STATUS NDEF_MsgAddMediaBtOob(UINT8 *p_msg,
+                                   UINT32 max_size,
+                                   UINT32 *p_cur_size,
+                                   char *p_id_str,
+                                   BD_ADDR bd_addr)
 {
     tNDEF_STATUS    status;
     UINT8           payload[BD_ADDR_LEN + 2];
@@ -326,8 +349,11 @@ tNDEF_STATUS NDEF_MsgAddMediaBtOob (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAppendMediaBtOobCod (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                          char *p_id_str, DEV_CLASS cod)
+tNDEF_STATUS NDEF_MsgAppendMediaBtOobCod(UINT8 *p_msg,
+                                         UINT32 max_size,
+                                         UINT32 *p_cur_size,
+                                         char *p_id_str,
+                                         DEV_CLASS cod)
 {
     tNDEF_STATUS    status;
     UINT8          *p_rec;
@@ -374,9 +400,13 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobCod (UINT8 *p_msg, UINT32 max_size, UINT32 
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAppendMediaBtOobName (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                           char *p_id_str, BOOLEAN is_complete,
-                                           UINT8 name_len, UINT8 *p_name)
+tNDEF_STATUS NDEF_MsgAppendMediaBtOobName (UINT8 *p_msg,
+                                           UINT32 max_size,
+                                           UINT32 *p_cur_size,
+                                           char *p_id_str,
+                                           BOOLEAN is_complete,
+                                           UINT8 name_len,
+                                           UINT8 *p_name)
 {
     tNDEF_STATUS    status;
     UINT8          *p_rec;
@@ -431,8 +461,12 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobName (UINT8 *p_msg, UINT32 max_size, UINT32
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAppendMediaBtOobHashCRandR (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                                 char *p_id_str, UINT8 *p_hash_c, UINT8 *p_rand_r)
+tNDEF_STATUS NDEF_MsgAppendMediaBtOobHashCRandR(UINT8 *p_msg,
+                                                UINT32 max_size,
+                                                UINT32 *p_cur_size,
+                                                char *p_id_str,
+                                                UINT8 *p_hash_c,
+                                                UINT8 *p_rand_r)
 {
     tNDEF_STATUS    status;
     UINT8          *p_rec;
@@ -484,9 +518,13 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobHashCRandR (UINT8 *p_msg, UINT32 max_size, 
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAppendMediaBtOobEirData (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                              char *p_id_str,
-                                              UINT8 eir_type, UINT8 data_len, UINT8 *p_data)
+tNDEF_STATUS ndef_msg_append_media_bt_oob_eir_data(UINT8 *p_msg,
+                                                   UINT32 max_size,
+                                                   UINT32 *p_cur_size,
+                                                   char *p_id_str,
+                                                   UINT8 eir_type,
+                                                   UINT8 data_len,
+                                                   UINT8 *p_data)
 {
     tNDEF_STATUS    status;
     UINT8          *p_rec;
@@ -532,8 +570,12 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobEirData (UINT8 *p_msg, UINT32 max_size, UIN
 ** Returns          NDEF_OK if all OK
 **
 *******************************************************************************/
-tNDEF_STATUS NDEF_MsgAddMediaWifiWsc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                    char *p_id_str, UINT8 *p_payload, UINT32 payload_len)
+tNDEF_STATUS ndef_msg_add_media_wifi_wsc(UINT8 *p_msg,
+                                         UINT32 max_size,
+                                         UINT32 *p_cur_size,
+                                         char *p_id_str,
+                                         UINT8 *p_payload,
+                                         UINT32 payload_len)
 {
     tNDEF_STATUS    status;
     UINT8           id_len = 0;
@@ -561,8 +603,10 @@ tNDEF_STATUS NDEF_MsgAddMediaWifiWsc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_c
 ** Returns          pointer of record if found, otherwise NULL
 **
 *******************************************************************************/
-static UINT8 *ndef_get_bt_oob_record (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
-                                      char *p_id_str)
+static UINT8 *ndef_get_bt_oob_record(UINT8 *p_msg,
+                                     UINT32 max_size,
+                                     UINT32 *p_cur_size,
+                                     char *p_id_str)
 {
     UINT8  *p_rec, *p_type;
     UINT8   id_len, tnf, type_len;
@@ -587,4 +631,3 @@ static UINT8 *ndef_get_bt_oob_record (UINT8 *p_msg, UINT32 max_size, UINT32 *p_c
 
     return (p_rec);
 }
-

@@ -27,6 +27,9 @@
 #ifndef NDEF_UTILS_H
 #define NDEF_UTILS_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 /* #include "bt_types.h" */
 
 #define NDEF_MB_MASK            0x80    /* Message Begin */
@@ -51,7 +54,6 @@
 enum
 {
     NDEF_OK,                            /* 0 - OK                                   */
-
     NDEF_REC_NOT_FOUND,                 /* 1 - No record matching the find criteria */
     NDEF_MSG_TOO_SHORT,                 /* 2 - Message was too short (< 3 bytes)    */
     NDEF_MSG_NO_MSG_BEGIN,              /* 3 - No 'begin' flag at start of message  */
@@ -84,18 +86,18 @@ extern "C" {
 */
 /*******************************************************************************
 **
-** Function         NDEF_MsgValidate
+** Function         ndef_msg_validate
 **
 ** Description      This function validates an NDEF message.
 **
 ** Returns          TRUE if all OK, or FALSE if the message is invalid.
 **
 *******************************************************************************/
-ndef_status ndef_MsgValidate(uint8_t *p_msg, uint32_t msg_len, bool b_allow_chunks);
+ndef_status ndef_msg_validate(uint8_t *p_msg, uint32_t msg_len, bool b_allow_chunks);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetNumRecs
+** Function         ndef_msg_get_num_recs
 **
 ** Description      This function gets the number of records in the given NDEF
 **                  message.
@@ -103,11 +105,11 @@ ndef_status ndef_MsgValidate(uint8_t *p_msg, uint32_t msg_len, bool b_allow_chun
 ** Returns          The record count, or 0 if the message is invalid.
 **
 *******************************************************************************/
-int32_t ndef_MsgGetNumRecs(uint8_t *p_msg);
+int32_t ndef_msg_get_num_recs(uint8_t *p_msg);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetRecLength
+** Function         ndef_msg_get_rec_length
 **
 ** Description      This function returns length of the current record in the given
 **                  NDEF message.
@@ -115,11 +117,11 @@ int32_t ndef_MsgGetNumRecs(uint8_t *p_msg);
 ** Returns          Length of record
 **
 *******************************************************************************/
-uint32_t ndef_MsgGetRecLength(uint8_t *p_cur_rec);
+uint32_t ndef_msg_get_rec_length(uint8_t *p_cur_rec);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetNextRec
+** Function         ndef_msg_get_next_rec
 **
 ** Description      This function gets a pointer to the next record after the
 **                  current one.
@@ -127,11 +129,11 @@ uint32_t ndef_MsgGetRecLength(uint8_t *p_cur_rec);
 ** Returns          Pointer to the start of the record, or NULL if no more
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetNextRec(uint8_t *p_cur_rec);
+uint8_t *ndef_msg_get_next_rec(uint8_t *p_cur_rec);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetRecByIndex
+** Function         ndef_msg_get_rec_by_index
 **
 ** Description      This function gets a pointer to the record with the given
 **                  index (0-based index) in the given NDEF message.
@@ -139,11 +141,11 @@ uint8_t *ndef_MsgGetNextRec(uint8_t *p_cur_rec);
 ** Returns          Pointer to the start of the record, or NULL
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetRecByIndex(uint8_t *p_msg, int32_t index);
+uint8_t *ndef_msg_get_rec_by_index(uint8_t *p_msg, int32_t index);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetLastRecInMsg
+** Function         ndef_msg_get_last_rec_in_msg
 **
 ** Description      This function gets a pointer to the last record in the
 **                  given NDEF message.
@@ -151,11 +153,11 @@ uint8_t *ndef_MsgGetRecByIndex(uint8_t *p_msg, int32_t index);
 ** Returns          Pointer to the start of the last record, or NULL if some problem
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetLastRecInMsg(uint8_t *p_msg);
+uint8_t *ndef_msg_get_last_rec_in_msg(uint8_t *p_msg);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetFirstRecByType
+** Function         ndef_msg_get_first_rec_by_type
 **
 ** Description      This function gets a pointer to the first record with the given
 **                  record type in the given NDEF message.
@@ -163,11 +165,11 @@ uint8_t *ndef_MsgGetLastRecInMsg(uint8_t *p_msg);
 ** Returns          Pointer to the start of the record, or NULL
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetFirstRecByType(uint8_t *p_msg, uint8_t tnf, uint8_t *p_type, uint8_t tlen);
+uint8_t *ndef_msg_get_first_rec_by_type(uint8_t *p_msg, uint8_t tnf, uint8_t *p_type, uint8_t tlen);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetNextRecByType
+** Function         ndef_msg_get_next_rec_by_type
 **
 ** Description      This function gets a pointer to the next record with the given
 **                  record type in the given NDEF message.
@@ -175,11 +177,11 @@ uint8_t *ndef_MsgGetFirstRecByType(uint8_t *p_msg, uint8_t tnf, uint8_t *p_type,
 ** Returns          Pointer to the start of the record, or NULL
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetNextRecByType(uint8_t *p_cur_rec, uint8_t tnf, uint8_t *p_type, uint8_t tlen);
+uint8_t *ndef_msg_get_next_rec_by_type(uint8_t *p_cur_rec, uint8_t tnf, uint8_t *p_type, uint8_t tlen);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetFirstRecById
+** Function         ndef_msg_get_first_rec_by_id
 **
 ** Description      This function gets a pointer to the first record with the given
 **                  record id in the given NDEF message.
@@ -187,11 +189,11 @@ uint8_t *ndef_MsgGetNextRecByType(uint8_t *p_cur_rec, uint8_t tnf, uint8_t *p_ty
 ** Returns          Pointer to the start of the record, or NULL
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetFirstRecById(uint8_t *p_msg, uint8_t *p_id, uint8_t ilen);
+uint8_t *ndef_msg_get_first_rec_by_id(uint8_t *p_msg, uint8_t *p_id, uint8_t ilen);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgGetNextRecById
+** Function         ndef_msg_get_next_rec_by_id
 **
 ** Description      This function gets a pointer to the next record with the given
 **                  record id in the given NDEF message.
@@ -199,47 +201,47 @@ uint8_t *ndef_MsgGetFirstRecById(uint8_t *p_msg, uint8_t *p_id, uint8_t ilen);
 ** Returns          Pointer to the start of the record, or NULL
 **
 *******************************************************************************/
-uint8_t *ndef_MsgGetNextRecById(uint8_t *p_cur_rec, uint8_t *p_id, uint8_t ilen);
+uint8_t *ndef_msg_get_next_rec_by_id(uint8_t *p_cur_rec, uint8_t *p_id, uint8_t ilen);
 
 /*******************************************************************************
 **
-** Function         ndef_RecGetType
+** Function         ndef_rec_get_type
 **
 ** Description      This function gets a pointer to the record type for the given NDEF record.
 **
 ** Returns          Pointer to Type (NULL if none). TNF and len are filled in.
 **
 *******************************************************************************/
-uint8_t *ndef_RecGetType(uint8_t *p_rec, uint8_t *p_tnf, uint8_t *p_type_len);
+uint8_t *ndef_rec_get_type(uint8_t *p_rec, uint8_t *p_tnf, uint8_t *p_type_len);
 
 /*******************************************************************************
 **
-** Function         ndef_RecGetId
+** Function         ndef_rec_get_id
 **
 ** Description      This function gets a pointer to the record id for the given NDEF record.
 **
 ** Returns          Pointer to Id (NULL if none). ID Len is filled in.
 **
 *******************************************************************************/
-uint8_t *ndef_RecGetId(uint8_t *p_rec, uint8_t *p_id_len);
+uint8_t *ndef_rec_get_id(uint8_t *p_rec, uint8_t *p_id_len);
 
 /*******************************************************************************
 **
-** Function         ndef_RecGetPayload
+** Function         ndef_rec_get_payload
 **
 ** Description      This function gets a pointer to the payload for the given NDEF record.
 **
 ** Returns          a pointer to the payload (NULL if none). Payload len filled in.
 **
 *******************************************************************************/
-uint8_t *ndef_RecGetPayload(uint8_t *p_rec, uint32_t *p_payload_len);
+uint8_t *ndef_rec_get_payload(uint8_t *p_rec, uint32_t *p_payload_len);
 
 
 /* Functions to build an NDEF Message
 */
 /*******************************************************************************
 **
-** Function         ndef_MsgInit
+** Function         ndef_msg_init
 **
 ** Description      This function initializes an NDEF message.
 **
@@ -247,11 +249,11 @@ uint8_t *ndef_RecGetPayload(uint8_t *p_rec, uint32_t *p_payload_len);
 **                  *p_cur_size is initialized to 0
 **
 *******************************************************************************/
-void ndef_MsgInit(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size);
+void ndef_msg_init(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAddRec
+** Function         ndef_msg_add_rec
 **
 ** Description      This function adds an NDEF record to the end of an NDEF message.
 **
@@ -259,14 +261,14 @@ void ndef_MsgInit(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size);
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status  ndef_MsgAddRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status  ndef_msg_add_rec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                             uint8_t tnf, uint8_t *p_type, uint8_t type_len,
                             uint8_t *p_id, uint8_t  id_len,
                             uint8_t *p_payload, uint32_t payload_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgInsertRec
+** Function         ndef_msg_insert_rec
 **
 ** Description      This function inserts a record at a specific index into the
 **                  given NDEF message
@@ -275,14 +277,14 @@ ndef_status  ndef_MsgAddRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_s
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status  ndef_MsgInsertRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, int32_t index,
+ndef_status  ndef_msg_insert_rec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, int32_t index,
                                uint8_t tnf, uint8_t *p_type, uint8_t type_len,
                                uint8_t *p_id, uint8_t  id_len,
                                uint8_t *p_payload, uint32_t payload_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAppendRec
+** Function         ndef_msg_append_rec
 **
 ** Description      This function adds NDEF records to the end of an NDEF message.
 **
@@ -290,12 +292,12 @@ ndef_status  ndef_MsgInsertRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cu
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status  ndef_MsgAppendRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status  ndef_msg_append_rec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                                uint8_t *p_new_rec, uint32_t new_rec_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAppendPayload
+** Function         ndef_msg_append_payload
 **
 ** Description      This function appends extra payload to a specific record in the
 **                  given NDEF message
@@ -304,12 +306,12 @@ ndef_status  ndef_MsgAppendRec(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cu
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status ndef_MsgAppendPayload(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_append_payload(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                                   uint8_t *p_rec, uint8_t *p_add_pl, uint32_t add_pl_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgReplacePayload
+** Function         ndef_msg_replace_payload
 **
 ** Description      This function replaces the payload of a specific record in the
 **                  given NDEF message
@@ -318,12 +320,12 @@ ndef_status ndef_MsgAppendPayload(uint8_t *p_msg, uint32_t max_size, uint32_t *p
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status ndef_MsgReplacePayload(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_replace_payload(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                                    uint8_t *p_rec, uint8_t *p_new_pl, uint32_t new_pl_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgReplaceType
+** Function         ndef_msg_replace_type
 **
 ** Description      This function replaces the type field of a specific record in the
 **                  given NDEF message
@@ -332,12 +334,12 @@ ndef_status ndef_MsgReplacePayload(uint8_t *p_msg, uint32_t max_size, uint32_t *
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status ndef_MsgReplaceType(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_replace_type(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                                 uint8_t *p_rec, uint8_t *p_new_type, uint8_t new_type_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgReplaceId
+** Function         ndef_msg_replace_id
 **
 ** Description      This function replaces the ID field of a specific record in the
 **                  given NDEF message
@@ -346,12 +348,12 @@ ndef_status ndef_MsgReplaceType(uint8_t *p_msg, uint32_t max_size, uint32_t *p_c
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status ndef_MsgReplaceId(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_replace_id(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                               uint8_t *p_rec, uint8_t *p_new_id, uint8_t new_id_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgRemoveRec
+** Function         ndef_msg_remove_rec
 **
 ** Description      This function removes the record at the given
 **                  index in the given NDEF message.
@@ -360,11 +362,11 @@ ndef_status ndef_MsgReplaceId(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur
 **                  *p_cur_size is updated
 **
 *******************************************************************************/
-ndef_status ndef_MsgRemoveRec(uint8_t *p_msg, uint32_t *p_cur_size, int32_t index);
+ndef_status ndef_msg_remove_rec(uint8_t *p_msg, uint32_t *p_cur_size, int32_t index);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgCopyAndDechunk
+** Function         ndef_msg_copy_and_dechunk
 **
 ** Description      This function copies and de-chunks an NDEF message.
 **                  It is assumed that the destination is at least as large
@@ -374,157 +376,156 @@ ndef_status ndef_MsgRemoveRec(uint8_t *p_msg, uint32_t *p_cur_size, int32_t inde
 ** Returns          The output byte count
 **
 *******************************************************************************/
-ndef_status ndef_MsgCopyAndDechunk(uint8_t *p_src, uint32_t src_len, uint8_t *p_dest, uint32_t *p_out_len);
+ndef_status ndef_msg_copy_and_dechunk(uint8_t *p_src, uint32_t src_len, uint8_t *p_dest, uint32_t *p_out_len);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgCreateWktHr
+** Function         ndef_msg_create_wkt_hr
 **
 ** Description      This function creates Handover Request Record with version.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgCreateWktHr(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                uint8_t version );
+ndef_status ndef_msg_create_wkt_hr(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, uint8_t version );
 
 /*******************************************************************************
 **
-** Function         ndef_MsgCreateWktHs
+** Function         ndef_msg_create_wkt_hs
 **
 ** Description      This function creates Handover Select Record with version.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgCreateWktHs(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_create_wkt_hs(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                                 uint8_t version );
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAddWktHc
+** Function         ndef_msg_add_wkt_hc
 **
 ** Description      This function adds Handover Carrier Record.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgAddWktHc(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_add_wkt_hc(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                              char  *p_id_str, uint8_t ctf,
                              uint8_t carrier_type_len, uint8_t *p_carrier_type,
                              uint8_t carrier_data_len, uint8_t *p_carrier_data);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAddWktAc
+** Function         ndef_msg_add_wkt_ac
 **
 ** Description      This function adds Alternative Carrier Record.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgAddWktAc(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_add_wkt_ac(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                              uint8_t cps, char *p_carrier_data_ref_str,
                              uint8_t aux_data_ref_count, char *p_aux_data_ref_str[]);
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAddWktCr
+** Function         ndef_msg_add_wkt_cr
 **
 ** Description      This function adds Collision Resolution Record.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgAddWktCr(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                             UINT16 random_number );
+ndef_status ndef_msg_add_wkt_cr(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+                             uint16_t random_number );
 
 /*******************************************************************************
 **
-** Function         ndef_MsgAddWktErr
+** Function         ndef_msg_add_wkt_err
 **
 ** Description      This function adds Error Record.
 **
 ** Returns          ndef_OK if all OK
 **
 *******************************************************************************/
-ndef_status ndef_MsgAddWktErr(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
+ndef_status ndef_msg_add_wkt_err(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
                               uint8_t error_reason, uint32_t error_data );
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAddMediaBtOob
-**
-** Description      This function adds BT OOB Record.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAddMediaBtOob(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                  char *p_id_str, BD_ADDR bd_addr);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_add_media_bt_oob */
+/* ** */
+/* ** Description      This function adds BT OOB Record. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_add_media_bt_oob(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                   char *p_id_str, BD_ADDR bd_addr); */
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAppendMediaBtOobCod
-**
-** Description      This function appends COD EIR data at the end of BT OOB Record.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAppendMediaBtOobCod(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                        char *p_id_str, DEV_CLASS cod);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_append_media_bt_oob_cod */
+/* ** */
+/* ** Description      This function appends COD EIR data at the end of BT OOB Record. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_append_media_bt_oob_cod(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                         char *p_id_str, DEV_CLASS cod); */
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAppendMediaBtOobName
-**
-** Description      This function appends Bluetooth Local Name EIR data
-**                  at the end of BT OOB Record.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAppendMediaBtOobName(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                         char *p_id_str, bool is_complete,
-                                         uint8_t name_len, uint8_t *p_name);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_append_media_bt_oob_name */
+/* ** */
+/* ** Description      This function appends Bluetooth Local Name EIR data */
+/* **                  at the end of BT OOB Record. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_append_media_bt_oob_name(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                          char *p_id_str, bool is_complete, */
+/*                                          uint8_t name_len, uint8_t *p_name); */
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAppendMediaBtOobHashCRandR
-**
-** Description      This function appends Hash C and Rand R at the end of BT OOB Record.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAppendMediaBtOobHashCRandR(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                               char *p_id_str, uint8_t *p_hash_c, uint8_t *p_rand_r);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_append_media_bt_oob_hash_c_rand_r */
+/* ** */
+/* ** Description      This function appends Hash C and Rand R at the end of BT OOB Record. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_append_media_bt_oob_hash_c_rand_r(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                                char *p_id_str, uint8_t *p_hash_c, uint8_t *p_rand_r); */
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAppendMediaBtOobEirData
-**
-** Description      This function appends EIR Data at the end of BT OOB Record.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAppendMediaBtOobEirData(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                            char *p_id_str,
-                                            uint8_t eir_type, uint8_t data_len, uint8_t *p_data);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_append_media_bt_oob_eir_data */
+/* ** */
+/* ** Description      This function appends EIR Data at the end of BT OOB Record. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_append_media_bt_oob_eir_data(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                             char *p_id_str, */
+/*                                             uint8_t eir_type, uint8_t data_len, uint8_t *p_data); */
 
-/*******************************************************************************
-**
-** Function         ndef_MsgAddMediaWifiWsc
-**
-** Description      This function adds Wifi Wsc Record header.
-**
-** Returns          ndef_OK if all OK
-**
-*******************************************************************************/
-ndef_status ndef_MsgAddMediaWifiWsc(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size,
-                                    char *p_id_str, uint8_t *p_payload, uint32_t payload_len);
+/* /\******************************************************************************* */
+/* ** */
+/* ** Function         ndef_msg_add_media_wifi_wsc */
+/* ** */
+/* ** Description      This function adds Wifi Wsc Record header. */
+/* ** */
+/* ** Returns          ndef_OK if all OK */
+/* ** */
+/* *******************************************************************************\/ */
+/* ndef_status ndef_msg_add_media_wifi_wsc(uint8_t *p_msg, uint32_t max_size, uint32_t *p_cur_size, */
+/*                                     char *p_id_str, uint8_t *p_payload, uint32_t payload_len); */
 
 #ifdef __cplusplus
 }
