@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
- * resarding copyright ownership.  The ASF licenses this file
+ * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
@@ -66,14 +66,6 @@ extern "C" {
 #define LIS2DW12_REG_TEMP_OUT                0x26
 
 #define LIS2DW12_REG_STATUS_REG              0x27
-#define LIS2DW12_STATUS_FIFO_THS         (1 << 7)
-#define LIS2DW12_STATUS_WU_IA            (1 << 6)
-#define LIS2DW12_STATUS_SLEEP_STATE      (1 << 5)    
-#define LIS2DW12_STATUS_DOUBLE_TAP       (1 << 4)
-#define LIS2DW12_STATUS_SINGLE_TAP       (1 << 3)
-#define LIS2DW12_STATUS_6D_IA            (1 << 2)
-#define LIS2DW12_STATUS_FF_IA            (1 << 1)
-#define LIS2DW12_STATUS_DRDY             (1 << 0)
 
 
 #define LIS2DW12_REG_OUT_X_L                 0x28

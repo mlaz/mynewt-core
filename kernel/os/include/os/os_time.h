@@ -62,6 +62,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "os/os_arch.h"
+#include "os/queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,7 +83,7 @@ typedef int32_t os_stime_t;
 #define OS_STIME_MAX INT32_MAX
 
 /* Used to wait forever for events and mutexs */
-#define OS_TIMEOUT_NEVER    (UINT32_MAX)
+#define OS_TIMEOUT_NEVER    (OS_TIME_MAX)
 
 
 /**
@@ -100,15 +102,28 @@ void os_time_advance(int ticks);
 
 /**
  * Puts the current task to sleep for the specified number of os ticks. There
- * is no delay if ticks is <= 0.
+ * is no delay if ticks is 0.
  *
- * @param osticks Number of ticks to delay (<= 0 means no delay).
+ * @param osticks Number of ticks to delay (0 means no delay).
  */
-void os_time_delay(int32_t osticks);
+void os_time_delay(os_time_t osticks);
 
 #define OS_TIME_TICK_LT(__t1, __t2) ((os_stime_t) ((__t1) - (__t2)) < 0)
 #define OS_TIME_TICK_GT(__t1, __t2) ((os_stime_t) ((__t1) - (__t2)) > 0)
 #define OS_TIME_TICK_GEQ(__t1, __t2) ((os_stime_t) ((__t1) - (__t2)) >= 0)
+
+#define OS_TIMEVAL_LT(__t1, __t2) \
+    (((__t1).tv_sec < (__t2).tv_sec) || \
+     (((__t1).tv_sec == (__t2).tv_sec) && ((__t1).tv_usec < (__t2).tv_usec)))
+#define OS_TIMEVAL_LEQ(__t1, __t2) \
+    (((__t1).tv_sec < (__t2).tv_sec) || \
+     (((__t1).tv_sec == (__t2).tv_sec) && ((__t1).tv_usec <= (__t2).tv_usec)))
+#define OS_TIMEVAL_GT(__t1, __t2) \
+    (((__t1).tv_sec > (__t2).tv_sec) || \
+     (((__t1).tv_sec == (__t2).tv_sec) && ((__t1).tv_usec > (__t2).tv_usec)))
+#define OS_TIMEVAL_GEQ(__t1, __t2) \
+    (((__t1).tv_sec > (__t2).tv_sec) || \
+     (((__t1).tv_sec == (__t2).tv_sec) && ((__t1).tv_usec >= (__t2).tv_usec)))
 
 /**
  * Structure representing time since Jan 1 1970 with microsecond
@@ -127,6 +142,44 @@ struct os_timezone {
     int16_t tz_minuteswest;
     /** Daylight savings time correction (if any) */
     int16_t tz_dsttime;
+};
+
+/**
+ * Represents a time change.  Passed to time change listeners when the current
+ * time-of-day is set.
+ */
+struct os_time_change_info {
+    /** UTC time prior to change. */
+    const struct os_timeval *tci_prev_tv;
+    /** Time zone prior to change. */
+    const struct os_timezone *tci_prev_tz;
+    /** UTC time after change. */
+    const struct os_timeval *tci_cur_tv;
+    /** Time zone after change. */
+    const struct os_timezone *tci_cur_tz;
+    /** True if the time was not set prior to change. */
+    bool tci_newly_synced;
+};
+
+/**
+ * Callback that is executed when the time-of-day is set.
+ *
+ * @param info                  Describes the time change that just occurred.
+ * @param arg                   Optional argument correponding to listener.
+ */
+typedef void os_time_change_fn(const struct os_time_change_info *info,
+                               void *arg);
+
+/**
+ * Time change listener.  Notified when the time-of-day is set.
+ */
+struct os_time_change_listener {
+    /*** Public. */
+    os_time_change_fn *tcl_fn;
+    void *tcl_arg;
+
+    /*** Internal. */
+    STAILQ_ENTRY(os_time_change_listener) tcl_next;
 };
 
 /**
@@ -161,7 +214,8 @@ struct os_timezone {
 
 /**
  * Set the time of day.  This does not modify os time, but rather just modifies
- * the offset by which we are tracking real time against os time.
+ * the offset by which we are tracking real time against os time.  This
+ * function notifies all registered time change listeners.
  *
  * @param utctime A timeval representing the UTC time we are setting
  * @param tz The time-zone to apply against the utctime being set.
@@ -181,6 +235,13 @@ int os_settimeofday(struct os_timeval *utctime, struct os_timezone *tz);
  * @return 0 on success, non-zero on failure
  */
 int os_gettimeofday(struct os_timeval *utctime, struct os_timezone *tz);
+
+/**
+ * Indicates whether the time has been set.
+ *
+ * @return                      true if time is set; false otherwise.
+ */
+bool os_time_is_set(void);
 
 /**
  * Get time since boot in microseconds.
@@ -205,7 +266,7 @@ void os_get_uptime(struct os_timeval *tvp);
  * @return                      0 on success; OS_EINVAL if the result is too
  *                                  large to fit in a uint32_t.
  */
-int os_time_ms_to_ticks(uint32_t ms, uint32_t *out_ticks);
+int os_time_ms_to_ticks(uint32_t ms, os_time_t *out_ticks);
 
 /**
  * Converts OS ticks to milliseconds.
@@ -216,7 +277,7 @@ int os_time_ms_to_ticks(uint32_t ms, uint32_t *out_ticks);
  * @return                      0 on success; OS_EINVAL if the result is too
  *                                  large to fit in a uint32_t.
  */
-int os_time_ticks_to_ms(uint32_t ticks, uint32_t *out_ms);
+int os_time_ticks_to_ms(os_time_t ticks, uint32_t *out_ms);
 
 
 /**
@@ -229,7 +290,15 @@ int os_time_ticks_to_ms(uint32_t ticks, uint32_t *out_ms);
  *
  * @return                      result on success
  */
-uint32_t os_time_ms_to_ticks32(uint32_t ms);
+static inline os_time_t
+os_time_ms_to_ticks32(uint32_t ms)
+{
+#if OS_TICKS_PER_SEC == 1000
+    return ms;
+#else
+    return ((uint64_t)ms * OS_TICKS_PER_SEC) / 1000;
+#endif
+}
 
 /**
  * Converts OS ticks to milliseconds.
@@ -241,7 +310,44 @@ uint32_t os_time_ms_to_ticks32(uint32_t ms);
  *
  * @return                      result on success
  */
-uint32_t os_time_ticks_to_ms32(uint32_t ticks);
+static inline uint32_t
+os_time_ticks_to_ms32(os_time_t ticks)
+{
+#if OS_TICKS_PER_SEC == 1000
+    return ticks;
+#else
+    return ((uint64_t)ticks * 1000) / OS_TICKS_PER_SEC;
+#endif
+}
+
+/**
+ * Registers a time change listener.  Whenever the time is set, all registered
+ * listeners are notified.  The provided pointer is added to an internal list,
+ * so the listener's lifetime must extend indefinitely (or until the listener
+ * is removed).
+ *
+ * NOTE: This function is not thread safe.  The following operations must be
+ * kept exclusive:
+ *     o Addition of listener
+ *     o Removal of listener
+ *     o Setting time
+ *
+ * @param listener              The listener to register.
+ */
+void os_time_change_listen(struct os_time_change_listener *listener);
+
+/**
+ * Unregisters a time change listener.
+ *
+ * NOTE: This function is not thread safe.  The following operations must be
+ * kept exclusive:
+ *     o Addition of listener
+ *     o Removal of listener
+ *     o Setting time
+ *
+ * @param listener              The listener to unregister.
+ */
+int os_time_change_remove(const struct os_time_change_listener *listener);
 
 #ifdef __cplusplus
 }

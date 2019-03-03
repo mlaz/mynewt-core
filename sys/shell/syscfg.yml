@@ -16,8 +16,6 @@
 # under the License.
 #
 
-# Package: sys/shell 
-
 syscfg.defs:
     SHELL_TASK:
         description: 'Controls whether shell is enabled or not.'
@@ -64,6 +62,11 @@ syscfg.defs:
     SHELL_PROMPT_MODULE:
         description: 'Include shell prompt module'
         value: 0
+
+    SHELL_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for shell functionality.
+        value: 500
 
 ## duplicated from boot/boot_serial
     BOOT_SERIAL_NVREG_MAGIC:

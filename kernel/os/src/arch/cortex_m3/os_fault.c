@@ -17,6 +17,9 @@
  * under the License.
  */
 
+#include <stdint.h>
+#include <unistd.h>
+
 #include "os/mynewt.h"
 #include "console/console.h"
 #include "hal/hal_system.h"
@@ -25,9 +28,6 @@
 #if MYNEWT_VAL(OS_COREDUMP)
 #include "coredump/coredump.h"
 #endif
-
-#include <stdint.h>
-#include <unistd.h>
 
 struct exception_frame {
     uint32_t r0;
@@ -147,6 +147,9 @@ os_default_irq(struct trap_frame *tf)
 #if MYNEWT_VAL(OS_COREDUMP)
     struct coredump_regs regs;
 #endif
+#if MYNEWT_VAL(OS_CRASH_RESTORE_REGS)
+    uint32_t *orig_sp;
+#endif
 
     console_blocking_mode();
     console_printf("Unhandled interrupt (%ld), exception sp 0x%08lx\n",
@@ -163,9 +166,39 @@ os_default_irq(struct trap_frame *tf)
       SCB->ICSR, SCB->HFSR, SCB->CFSR);
     console_printf("BFAR:0x%08lx MMFAR:0x%08lx\n", SCB->BFAR, SCB->MMFAR);
 
+    os_stacktrace((uintptr_t)(tf->ef + 1));
 #if MYNEWT_VAL(OS_COREDUMP)
     trap_to_coredump(tf, &regs);
     coredump_dump(&regs, sizeof(regs));
 #endif
+
+#if MYNEWT_VAL(OS_CRASH_RESTORE_REGS)
+    if (((SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) < 16) &&
+                                            hal_debugger_connected()) {
+        orig_sp = &tf->ef->r0;
+        orig_sp += 8;
+        if (tf->ef->psr & SCB_CCR_STKALIGN_Msk) {
+            orig_sp++;
+        }
+
+        console_printf("Use 'set $pc = 0x%08lx' to restore PC in gdb\n",
+                       tf->ef->pc);
+
+        __asm volatile (
+            "mov sp, %[stack_ptr]\n"
+            "mov r0, %[regs1]\n"
+            "ldm r0, {r4-r11}\n"
+            "mov r0, %[regs2]\n"
+            "ldm r0, {r0-r3,r12,lr}\n"
+            "bkpt"
+            :
+            : [regs1] "r" (&tf->r4),
+              [regs2] "r" (tf->ef),
+              [stack_ptr] "r" (orig_sp)
+            : "r0"
+        );
+    }
+#endif
+
     hal_system_reset();
 }

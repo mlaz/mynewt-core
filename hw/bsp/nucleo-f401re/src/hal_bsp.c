@@ -26,7 +26,6 @@
 
 #include <hal/hal_bsp.h>
 #include <hal/hal_gpio.h>
-#include <hal/hal_flash_int.h>
 #include <hal/hal_i2c.h>
 #include <hal/hal_timer.h>
 #if MYNEWT_VAL(SPI_0_MASTER) || MYNEWT_VAL(SPI_0_SLAVE)
@@ -38,6 +37,22 @@
 #include "mcu/stm32_hal.h"
 #include "bsp/bsp.h"
 #include <assert.h>
+
+const uint32_t stm32_flash_sectors[] = {
+    0x08000000,     /* 16kB */
+    0x08004000,     /* 16kB */
+    0x08008000,     /* 16kB */
+    0x0800c000,     /* 16kB */
+    0x08010000,     /* 64kB */
+    0x08020000,     /* 128kB */
+    0x08040000,     /* 128kB */
+    0x08060000,     /* 128kB */
+    0x08080000,     /* End of flash */
+};
+
+#define SZ (sizeof(stm32_flash_sectors) / sizeof(stm32_flash_sectors[0]))
+_Static_assert(MYNEWT_VAL(STM32_FLASH_NUM_AREAS) == SZ,
+        "STM32_FLASH_NUM_AREAS does not match flash sectors");
 
 #if MYNEWT_VAL(UART_0)
 static struct uart_dev hal_uart0;
@@ -93,6 +108,7 @@ struct stm32_hal_spi_cfg spi0_cfg = {
 };
 #endif
 
+extern const struct hal_flash stm32_flash_dev;
 const struct hal_flash *
 hal_bsp_flash_dev(uint8_t id)
 {
@@ -102,7 +118,7 @@ hal_bsp_flash_dev(uint8_t id)
     if (id != 0) {
         return NULL;
     }
-    return &stm32f4_flash_dev;
+    return &stm32_flash_dev;
 }
 
 const struct hal_bsp_mem_dump *

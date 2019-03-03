@@ -16,11 +16,13 @@
 # under the License.
 #
 
-# Package: net/ip
-
 syscfg.defs:
     LWIP_CLI:
         description: 'CLI for interacting with LwIP'
         value: 1
         restrictions:
           - SHELL_TASK
+    IP_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for the IP stack.
+        value: 200

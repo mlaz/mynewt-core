@@ -16,8 +16,6 @@
 # under the License.
 #
 
-# Package: sys/console/minimal
-
 syscfg.defs:
     CONSOLE_UART:
         description: 'Set console output to UART'
@@ -51,3 +49,12 @@ syscfg.defs:
     CONSOLE_UART_DEV:
         description: 'Console UART device.'
         value: '"uart0"'
+
+    CONSOLE_DEFAULT_LOCK_TIMEOUT:
+        description: 'Default timeout (in ms) for console_lock() function used in console_write.'
+        value: 1000
+
+    CONSOLE_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for console functionality.
+        value: 20

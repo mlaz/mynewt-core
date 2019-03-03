@@ -48,24 +48,32 @@ nrf52_saadc_event_handler(const nrfx_saadc_evt_t *event)
     nrfx_saadc_done_evt_t *done_ev;
     int rc;
 
-    if (global_adc_dev == NULL) {
+    if (global_adc_dev == NULL || !global_adc_dev->ad_event_handler_func) {
         ++nrf52_saadc_stats.saadc_events_failed;
         return;
     }
 
     ++nrf52_saadc_stats.saadc_events;
 
-    /* Right now only data reads supported, assert for unknown event
-     * type.
-     */
-    assert(event->type == NRFX_SAADC_EVT_DONE);
+    switch (event->type) {
+        case NRFX_SAADC_EVT_DONE:
+            done_ev = (nrfx_saadc_done_evt_t * const) &event->data.done;
 
-    done_ev = (nrfx_saadc_done_evt_t * const) &event->data.done;
+            rc = global_adc_dev->ad_event_handler_func(global_adc_dev,
+                                       global_adc_dev->ad_event_handler_arg,
+                                       ADC_EVENT_RESULT, done_ev->p_buffer,
+                                       done_ev->size * sizeof(nrf_saadc_value_t));
+            break;
+        case NRFX_SAADC_EVT_CALIBRATEDONE:
+            rc = global_adc_dev->ad_event_handler_func(global_adc_dev,
+                                       global_adc_dev->ad_event_handler_arg,
+                                       ADC_EVENT_CALIBRATED, NULL, 0);
+            break;
+        default:
+            assert(0);
+            break;
+    }
 
-    rc = global_adc_dev->ad_event_handler_func(global_adc_dev,
-            global_adc_dev->ad_event_handler_arg,
-            ADC_EVENT_RESULT, done_ev->p_buffer,
-            done_ev->size * sizeof(nrf_saadc_value_t));
     if (rc != 0) {
         ++nrf52_saadc_stats.saadc_events_failed;
     }
@@ -91,7 +99,8 @@ static int
 nrf52_adc_open(struct os_dev *odev, uint32_t wait, void *arg)
 {
     struct adc_dev *dev;
-    int rc;
+    int rc = 0;
+    int unlock = 0;
 
     dev = (struct adc_dev *) odev;
 
@@ -100,26 +109,25 @@ nrf52_adc_open(struct os_dev *odev, uint32_t wait, void *arg)
         if (rc != OS_OK) {
             goto err;
         }
+        unlock = 1;
     }
 
-    if (odev->od_flags & OS_DEV_F_STATUS_OPEN) {
-        os_mutex_release(&dev->ad_lock);
-        rc = OS_EBUSY;
-        goto err;
+    if (++(dev->ad_ref_cnt) == 1) {
+        /* Initialize the device */
+        rc = nrfx_saadc_init((nrfx_saadc_config_t *) arg,
+                nrf52_saadc_event_handler);
+        if (rc != NRFX_SUCCESS) {
+            goto err;
+        }
+        rc = 0;
+
+        global_adc_dev = dev;
+        global_adc_config = arg;
     }
-
-    /* Initialize the device */
-    rc = nrfx_saadc_init((nrfx_saadc_config_t *) arg,
-            nrf52_saadc_event_handler);
-    if (rc != NRFX_SUCCESS) {
-        goto err;
-    }
-
-    global_adc_dev = dev;
-    global_adc_config = arg;
-
-    return (0);
 err:
+    if (unlock) {
+        os_mutex_release(&dev->ad_lock);
+    }
     return (rc);
 }
 
@@ -135,19 +143,31 @@ static int
 nrf52_adc_close(struct os_dev *odev)
 {
     struct adc_dev *dev;
+    int rc = 0;
+    int unlock = 0;
 
     dev = (struct adc_dev *) odev;
 
-    nrfx_saadc_uninit();
-
-    global_adc_dev = NULL;
-    global_adc_config = NULL;
-
     if (os_started()) {
+        rc = os_mutex_pend(&dev->ad_lock, OS_TIMEOUT_NEVER);
+        if (rc != OS_OK) {
+            goto err;
+        }
+        unlock = 1;
+    }
+    if (--(dev->ad_ref_cnt) == 0) {
+        nrfx_saadc_uninit();
+
+        global_adc_dev = NULL;
+        global_adc_config = NULL;
+    }
+
+err:
+    if (unlock) {
         os_mutex_release(&dev->ad_lock);
     }
 
-    return (0);
+    return rc;
 }
 
 /**
@@ -319,16 +339,27 @@ nrf52_adc_read_channel(struct adc_dev *dev, uint8_t cnum, int *result)
 {
     nrf_saadc_value_t adc_value;
     int rc;
+    int unlock = 0;
 
+    if (os_started()) {
+        rc = os_mutex_pend(&dev->ad_lock, OS_TIMEOUT_NEVER);
+        if (rc != OS_OK) {
+            goto err;
+        }
+        unlock = 1;
+    }
     rc = nrfx_saadc_sample_convert(cnum, &adc_value);
     if (rc != NRFX_SUCCESS) {
         goto err;
     }
 
     *result = (int) adc_value;
+    rc = 0;
 
-    return (0);
 err:
+    if (unlock) {
+        os_mutex_release(&dev->ad_lock);
+    }
     return (rc);
 }
 
@@ -365,6 +396,19 @@ saadc_irq_handler(void)
 #endif
 
 /**
+ * ADC device driver functions
+ */
+static const struct adc_driver_funcs nrf52_adc_funcs = {
+        .af_configure_channel = nrf52_adc_configure_channel,
+        .af_sample = nrf52_adc_sample,
+        .af_read_channel = nrf52_adc_read_channel,
+        .af_set_buffer = nrf52_adc_set_buffer,
+        .af_release_buffer = nrf52_adc_release_buffer,
+        .af_read_buffer = nrf52_adc_read_buffer,
+        .af_size_buffer = nrf52_adc_size_buffer,
+};
+
+/**
  * Callback to initialize an adc_dev structure from the os device
  * initialization callback.  This sets up a nrf52_adc_device(), so
  * that subsequent lookups to this device allow us to manipulate it.
@@ -373,7 +417,6 @@ int
 nrf52_adc_dev_init(struct os_dev *odev, void *arg)
 {
     struct adc_dev *dev;
-    struct adc_driver_funcs *af;
 
     dev = (struct adc_dev *) odev;
 
@@ -387,15 +430,7 @@ nrf52_adc_dev_init(struct os_dev *odev, void *arg)
     assert(init_adc_config == NULL || init_adc_config == arg);
     init_adc_config = arg;
 
-    af = &dev->ad_funcs;
-
-    af->af_configure_channel = nrf52_adc_configure_channel;
-    af->af_sample = nrf52_adc_sample;
-    af->af_read_channel = nrf52_adc_read_channel;
-    af->af_set_buffer = nrf52_adc_set_buffer;
-    af->af_release_buffer = nrf52_adc_release_buffer;
-    af->af_read_buffer = nrf52_adc_read_buffer;
-    af->af_size_buffer = nrf52_adc_size_buffer;
+    dev->ad_funcs = &nrf52_adc_funcs;
 
 #if MYNEWT_VAL(OS_SYSVIEW)
     NVIC_SetVector(SAADC_IRQn, (uint32_t) saadc_irq_handler);

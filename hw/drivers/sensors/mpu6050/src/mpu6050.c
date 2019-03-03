@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
- * resarding copyright ownership.  The ASF licenses this file
+ * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
@@ -23,13 +23,15 @@
 
 #include "os/mynewt.h"
 #include "hal/hal_i2c.h"
+#include "i2cn/i2cn.h"
 #include "sensor/sensor.h"
 #include "sensor/accel.h"
 #include "sensor/gyro.h"
 #include "mpu6050/mpu6050.h"
 #include "mpu6050_priv.h"
-#include "log/log.h"
+#include "modlog/modlog.h"
 #include "stats/stats.h"
+#include <syscfg/syscfg.h>
 
 /* Define the stats section and records */
 STATS_SECT_START(mpu6050_stat_section)
@@ -46,10 +48,8 @@ STATS_NAME_END(mpu6050_stat_section)
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(mpu6050_stat_section) g_mpu6050stats;
 
-#define LOG_MODULE_MPU6050    (6050)
-#define MPU6050_INFO(...)     LOG_INFO(&_log, LOG_MODULE_MPU6050, __VA_ARGS__)
-#define MPU6050_ERR(...)      LOG_ERROR(&_log, LOG_MODULE_MPU6050, __VA_ARGS__)
-static struct log _log;
+#define MPU6050_LOG(lvl_, ...) \
+    MODLOG_ ## lvl_(MYNEWT_VAL(MPU6050_LOG_MODULE), __VA_ARGS__)
 
 /* Exports for the sensor API */
 static int mpu6050_sensor_read(struct sensor *, sensor_type_t,
@@ -83,14 +83,22 @@ mpu6050_write8(struct sensor_itf *itf, uint8_t reg, uint32_t value)
         .buffer = payload
     };
 
-    rc = hal_i2c_master_write(itf->si_num, &data_struct,
-                              OS_TICKS_PER_SEC / 10, 1);
+    rc = sensor_itf_lock(itf, MYNEWT_VAL(MPU6050_ITF_LOCK_TMO));
+    if (rc) {
+        return rc;
+    }
+
+    rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
+                           MYNEWT_VAL(MPU6050_I2C_RETRIES));
 
     if (rc) {
-        MPU6050_ERR("Failed to write to 0x%02X:0x%02X with value 0x%02lX\n",
-                       itf->si_addr, reg, value);
+        MPU6050_LOG(ERROR,
+                    "Failed to write to 0x%02X:0x%02X with value 0x%02lX\n",
+                    itf->si_addr, reg, value);
         STATS_INC(g_mpu6050stats, read_errors);
     }
+
+    sensor_itf_unlock(itf);
 
     return rc;
 }
@@ -115,24 +123,34 @@ mpu6050_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
         .buffer = &reg
     };
 
-    /* Register write */
-    rc = hal_i2c_master_write(itf->si_num, &data_struct,
-                              OS_TICKS_PER_SEC / 10, 0);
+    rc = sensor_itf_lock(itf, MYNEWT_VAL(MPU6050_ITF_LOCK_TMO));
     if (rc) {
-        MPU6050_ERR("I2C access failed at address 0x%02X\n", itf->si_addr);
+        return rc;
+    }
+
+    /* Register write */
+    rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 0,
+                           MYNEWT_VAL(MPU6050_I2C_RETRIES));
+    if (rc) {
+        MPU6050_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+                    itf->si_addr);
         STATS_INC(g_mpu6050stats, write_errors);
         return rc;
     }
 
     /* Read one byte back */
     data_struct.buffer = value;
-    rc = hal_i2c_master_read(itf->si_num, &data_struct,
-                             OS_TICKS_PER_SEC / 10, 1);
+    rc = i2cn_master_read(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
+                          MYNEWT_VAL(MPU6050_I2C_RETRIES));
 
     if (rc) {
-         MPU6050_ERR("Failed to read from 0x%02X:0x%02X\n", itf->si_addr, reg);
-         STATS_INC(g_mpu6050stats, read_errors);
+        MPU6050_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+                    itf->si_addr, reg);
+        STATS_INC(g_mpu6050stats, read_errors);
     }
+
+    sensor_itf_unlock(itf);
+
     return rc;
 }
 
@@ -156,11 +174,17 @@ mpu6050_read48(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer)
         .buffer = &reg
     };
 
-    /* Register write */
-    rc = hal_i2c_master_write(itf->si_num, &data_struct,
-                              OS_TICKS_PER_SEC / 10, 0);
+    rc = sensor_itf_lock(itf, MYNEWT_VAL(MPU6050_ITF_LOCK_TMO));
     if (rc) {
-        MPU6050_ERR("I2C access failed at address 0x%02X\n", itf->si_addr);
+        return rc;
+    }
+
+    /* Register write */
+    rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 0,
+                           MYNEWT_VAL(MPU6050_I2C_RETRIES));
+    if (rc) {
+        MPU6050_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+                    itf->si_addr);
         STATS_INC(g_mpu6050stats, write_errors);
         return rc;
     }
@@ -168,13 +192,17 @@ mpu6050_read48(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer)
     /* Read six bytes back */
     data_struct.len = 6;
     data_struct.buffer = buffer;
-    rc = hal_i2c_master_read(itf->si_num, &data_struct,
-                             OS_TICKS_PER_SEC / 10, 1);
+    rc = i2cn_master_read(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
+                          MYNEWT_VAL(MPU6050_I2C_RETRIES));
 
     if (rc) {
-         MPU6050_ERR("Failed to read from 0x%02X:0x%02X\n", itf->si_addr, reg);
-         STATS_INC(g_mpu6050stats, read_errors);
+        MPU6050_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+                    itf->si_addr, reg);
+        STATS_INC(g_mpu6050stats, read_errors);
     }
+
+    sensor_itf_unlock(itf);
+
     return rc;
 }
 
@@ -376,8 +404,6 @@ mpu6050_init(struct os_dev *dev, void *arg)
     mpu = (struct mpu6050 *) dev;
 
     mpu->cfg.mask = SENSOR_TYPE_ALL;
-
-    log_register(dev->od_name, &_log, &log_console_handler, NULL, LOG_SYSLEVEL);
 
     sensor = &mpu->sensor;
 

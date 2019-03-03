@@ -178,6 +178,9 @@ struct charge_control_itf {
 
     /* Charge control interface address (for I2C interface type) */
     uint16_t cci_addr;
+
+    /* OS lock for shared access */
+    struct os_mutex *cci_lock;
 };
 
 // ---------------------- LISTENER ---------------------------------
@@ -361,8 +364,10 @@ struct charge_control {
     /* Charge controller last reading timestamp */
     struct charge_control_timestamp cc_sts;
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
     /* Charge controller interface structure */
     struct charge_control_itf cc_itf;
+#endif
 
     /* A list of listeners that are registered to receive data from this
      * charge controller
@@ -508,6 +513,7 @@ charge_control_check_type(struct charge_control *cc,
     return (cc->cc_types & cc->cc_mask & type);
 }
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
 /**
  * Set interface type and number
  *
@@ -523,9 +529,11 @@ charge_control_set_interface(struct charge_control *cc,
     cc->cc_itf.cci_num = itf->cci_num;
     cc->cc_itf.cci_cs_pin = itf->cci_cs_pin;
     cc->cc_itf.cci_addr = itf->cci_addr;
+    cc->cc_itf.cci_lock = itf->cci_lock;
 
     return (0);
 }
+#endif
 
 /**
  * Read the configuration for the charge control type "type," and return the

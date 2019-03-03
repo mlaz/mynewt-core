@@ -18,20 +18,5 @@
 #
 
 pkg.name: apps/bletest
-pkg.type: app
-pkg.description: Test project for the nimble BLE controller.
-pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
-pkg.homepage: "http://mynewt.apache.org/"
-pkg.keywords:
-
-pkg.deps:
-    - net/nimble/controller
-    - net/nimble/host
-    - net/nimble/transport/ram
-    - kernel/os
-    - sys/console/full
-    - sys/shell
-    - sys/config
-    - sys/log/full
-    - sys/stats/full
-pkg.cflags: -DBLETEST
+pkg.type: transient
+pkg.link: "@apache-mynewt-nimble/apps/bletest"

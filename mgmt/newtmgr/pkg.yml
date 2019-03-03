@@ -24,17 +24,17 @@ pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
 
 pkg.deps:
-    - encoding/cborattr
-    - kernel/os
-    - mgmt/mgmt
-    - mgmt/newtmgr/nmgr_os
-    - util/mem
+    - "@apache-mynewt-core/encoding/cborattr"
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/mgmt/mgmt"
+    - "@apache-mynewt-core/mgmt/newtmgr/nmgr_os"
+    - "@apache-mynewt-core/util/mem"
 
 pkg.deps.NEWTMGR_BLE_HOST:
-    - mgmt/newtmgr/transport/ble
+    - "@apache-mynewt-core/mgmt/newtmgr/transport/ble"
 
 pkg.apis:
     - newtmgr
 
 pkg.init:
-    nmgr_pkg_init: 500
+    nmgr_pkg_init: 'MYNEWT_VAL(NEWTMGR_SYSINIT_STAGE)'

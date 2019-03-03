@@ -1,25 +1,25 @@
-/**
- * Copyright (c) 2017, Nordic Semiconductor ASA
+/*
+ * Copyright (c) 2017 - 2018, Nordic Semiconductor ASA
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
  *    list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
@@ -117,6 +117,27 @@ extern "C" {
  */
 #define NRFX_ROUNDED_DIV(a, b)  (((a) + ((b) / 2)) / (b))
 
+/**@brief Macro for performing integer division, making sure the result is rounded up.
+ *
+ * @details A typical use case for this macro is to compute the number of objects 
+ *          with size @c b required to hold @c a number of bytes.
+ *
+ * @param a  Numerator.
+ * @param b  Denominator.
+ *
+ * @return Integer result of dividing @c a by @c b, rounded up.
+ */
+#define NRFX_CEIL_DIV(a, b)  ((((a) - 1) / (b)) + 1)
+
+/**
+ * @brief Macro for getting the number of elements in an array.
+ *
+ * @param array  Name of the array.
+ *
+ * @return Array element count.
+ */
+#define NRFX_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+
 /**@brief Macro for checking if given lengths of EasyDMA transfers do not exceed
  *        the limit of the specified peripheral.
  *
@@ -130,6 +151,44 @@ extern "C" {
     (((length1) < (1U << NRFX_CONCAT_2(peripheral, _EASYDMA_MAXCNT_SIZE))) && \
      ((length2) < (1U << NRFX_CONCAT_2(peripheral, _EASYDMA_MAXCNT_SIZE))))
 
+/**@brief Macro for waiting until condition is met.
+ *
+ * @param[in]  condition Condition to meet.
+ * @param[in]  attempts  Maximum number of condition checks. Must not be 0.
+ * @param[in]  delay_us  Delay between consecutive checks, in microseconds.
+ * @param[out] result    Boolean variable to store the result of the wait process.
+ *                       Set to true if the condition is met or false otherwise.
+ */
+#define NRFX_WAIT_FOR(condition, attempts, delay_us, result) \
+do {                                                         \
+    result =  false;                                         \
+    uint32_t remaining_attempts = (attempts);                \
+    do {                                                     \
+           if (condition)                                    \
+           {                                                 \
+               result =  true;                               \
+               break;                                        \
+           }                                                 \
+           NRFX_DELAY_US(delay_us);                          \
+    } while (--remaining_attempts);                          \
+} while(0)
+
+/**
+ * @brief Macro for getting the interrupt number assigned to a specific
+ *        peripheral.
+ *
+ * In Nordic SoCs the IRQ number assigned to a peripheral is equal to the ID
+ * of this peripheral, and there is a direct relationship between this ID and
+ * the peripheral base address, i.e. the address of a fixed block of 0x1000
+ * bytes of address space assigned to this peripheral.
+ * See the chapter "Peripheral interface" (sections "Peripheral ID" and
+ * "Interrupts") in the product specification of a given SoC.
+ *
+ * @param[in] base_addr  Peripheral base address or pointer.
+ *
+ * @return Interrupt number associated with the specified peripheral.
+ */
+#define NRFX_IRQ_NUMBER_GET(base_addr)  (uint8_t)((uint32_t)(base_addr) >> 12)
 
 /**
  * @brief IRQ handler type.
@@ -202,6 +261,7 @@ __STATIC_INLINE uint32_t nrfx_bitpos_to_event(uint32_t bit);
  */
 __STATIC_INLINE uint32_t nrfx_event_to_bitpos(uint32_t event);
 
+
 #ifndef SUPPRESS_INLINE_IMPLEMENTATION
 
 __STATIC_INLINE bool nrfx_is_in_ram(void const * p_object)
@@ -211,8 +271,7 @@ __STATIC_INLINE bool nrfx_is_in_ram(void const * p_object)
 
 __STATIC_INLINE IRQn_Type nrfx_get_irq_number(void const * p_reg)
 {
-    uint8_t irq_number = (uint8_t)(((uint32_t)p_reg) >> 12u);
-    return (IRQn_Type)irq_number;
+    return (IRQn_Type)NRFX_IRQ_NUMBER_GET(p_reg);
 }
 
 __STATIC_INLINE uint32_t nrfx_bitpos_to_event(uint32_t bit)

@@ -18,11 +18,15 @@
 #
 
 syscfg.defs:
-  NMGR_UART:
-    description: 'UART port number to use for newtmgr'
-    value: '"uart0"'
+    NMGR_UART:
+        description: 'UART port number to use for newtmgr'
+        value: '"uart0"'
 
-  NMGR_UART_SPEED:
-    description: 'Baudrate for newtmgr UART'
-    value: 115200
+    NMGR_UART_SPEED:
+        description: 'Baudrate for newtmgr UART'
+        value: 115200
 
+    NMGR_UART_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for the UART newtmgr transport.
+        value: 501

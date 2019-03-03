@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
- * resarding copyright ownership.  The ASF licenses this file
+ * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
@@ -24,7 +24,12 @@
 #include "os/os_dev.h"
 #include "syscfg/syscfg.h"
 #include "os/os_time.h"
+#if MYNEWT_VAL(ADP5061_USE_CHARGE_CONTROL)
 #include "charge-control/charge_control.h"
+#endif
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+#include "bus/drivers/i2c_common.h"
+#endif
 
 /**
 * Struct for ADP50961 configuration
@@ -43,8 +48,15 @@ struct adp5061_config {
 };
 
 struct adp5061_dev {
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    struct bus_i2c_node     a_node;
+#if MYNEWT_VAL(ADP5061_USE_CHARGE_CONTROL)
+    struct charge_control   a_chg_ctrl;
+#endif
+#else
     struct os_dev           a_dev;
     struct charge_control   a_chg_ctrl;
+#endif
     struct adp5061_config   a_cfg;
     os_time_t               a_last_read_time;
 };
@@ -978,5 +990,20 @@ int adp5061_set_regs(struct adp5061_dev *dev, uint8_t addr,
                                             >> ADP5061_SYS_EN_OFFSET)
 #define ADP5061_SYS_EN_SET(a)           ((a & ((1 << ADP5061_SYS_EN_LEN)-1)) \
                                             << ADP5061_SYS_EN_OFFSET)
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+/**
+ * Create I2C bus node for ADP5061
+ *
+ * @param node  Bus node
+ * @param name  Device name
+ * @param cfg   I2C node configuration
+ *
+ * @return 0 on success, non-zero on failure
+ */
+int
+adp5061_create_i2c_dev(struct bus_i2c_node *node, const char *name,
+                       const struct bus_i2c_node_cfg *cfg);
+#endif
 
 #endif /* _ADP5061_H */

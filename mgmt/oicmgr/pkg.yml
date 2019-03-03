@@ -24,13 +24,13 @@ pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
 
 pkg.deps:
-    - kernel/os
-    - net/oic
-    - mgmt/mgmt
-    - mgmt/newtmgr/nmgr_os
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/net/oic"
+    - "@apache-mynewt-core/mgmt/mgmt"
+    - "@apache-mynewt-core/mgmt/newtmgr/nmgr_os"
 
 pkg.apis:
     - newtmgr
 
 pkg.init:
-    oicmgr_init: 500
+    oicmgr_init: 'MYNEWT_VAL(OICMGR_SYSINIT_STAGE)'

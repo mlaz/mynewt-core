@@ -26,15 +26,15 @@ pkg.keywords:
     - filesystem
 
 pkg.deps:
-    - fs/fs
-    - util/crc
-    - hw/hal
-    - kernel/os
-    - test/testutil
-    - sys/flash_map
+    - "@apache-mynewt-core/fs/fs"
+    - "@apache-mynewt-core/util/crc"
+    - "@apache-mynewt-core/hw/hal"
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/test/testutil"
+    - "@apache-mynewt-core/sys/flash_map"
 pkg.req_apis:
     - log
     - stats
 
 pkg.init:
-    fatfs_pkg_init: 200
+    fatfs_pkg_init: 'MYNEWT_VAL(FATFS_SYSINIT_STAGE)'

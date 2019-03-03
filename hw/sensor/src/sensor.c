@@ -60,11 +60,6 @@ struct {
     SLIST_HEAD(, sensor) mgr_sensor_list;
 } sensor_mgr;
 
-struct sensor_read_ctx {
-    sensor_data_func_t user_func;
-    void *user_arg;
-};
-
 struct sensor_timestamp sensor_base_ts;
 struct os_callout st_up_osco;
 
@@ -77,9 +72,12 @@ static struct os_event sensor_read_event = {
     .ev_cb = sensor_read_ev_cb,
 };
 
+#define SENSOR_NOTIFY_EVT_MEMPOOL_SIZE  \
+    OS_MEMPOOL_SIZE(MYNEWT_VAL(SENSOR_NOTIF_EVENTS_MAX), \
+                    sizeof(struct sensor_notify_os_ev))
+
 static struct os_mempool sensor_notify_evt_pool;
-static uint8_t sensor_notify_evt_area[OS_MEMPOOL_BYTES(MYNEWT_VAL(SENSOR_NOTIF_EVENTS_MAX),
-      sizeof(struct sensor_notify_os_ev))];
+static os_membuf_t sensor_notify_evt_area[SENSOR_NOTIFY_EVT_MEMPOOL_SIZE];
 
 /**
  * Lock sensor manager to access the list of sensors
@@ -237,7 +235,7 @@ err:
  * @param The sensor type trait
  */
 int
-sensor_set_n_poll_rate(char *devname, struct sensor_type_traits *stt)
+sensor_set_n_poll_rate(const char *devname, struct sensor_type_traits *stt)
 {
     struct sensor *sensor;
     struct sensor_type_traits *stt_tmp;
@@ -374,7 +372,7 @@ sensor_update_nextrun(struct sensor *sensor, os_time_t now)
  * @param The poll rate in milli seconds
  */
 int
-sensor_set_poll_rate_ms(char *devname, uint32_t poll_rate)
+sensor_set_poll_rate_ms(const char *devname, uint32_t poll_rate)
 {
     struct sensor *sensor;
     os_time_t next_wakeup;
@@ -645,6 +643,7 @@ sensor_mgr_init(void)
 {
     struct os_timeval ostv;
     struct os_timezone ostz;
+    int rc;
 
 #ifdef MYNEWT_VAL_SENSOR_MGR_EVQ
     sensor_mgr_evq_set(MYNEWT_VAL(SENSOR_MGR_EVQ));
@@ -652,10 +651,11 @@ sensor_mgr_init(void)
     sensor_mgr_evq_set(os_eventq_dflt_get());
 #endif
 
-    os_mempool_init(&sensor_notify_evt_pool,
-                    MYNEWT_VAL(SENSOR_NOTIF_EVENTS_MAX),
-                    sizeof(struct sensor_notify_os_ev), sensor_notify_evt_area,
-                    "sensor_notif_evts");
+    rc = os_mempool_init(&sensor_notify_evt_pool,
+                         MYNEWT_VAL(SENSOR_NOTIF_EVENTS_MAX),
+                         sizeof(struct sensor_notify_os_ev), sensor_notify_evt_area,
+                         "sensor_notif_evts");
+    assert(rc == OS_OK);
 
     /**
      * Initialize sensor polling callout and set it to fire on boot.
@@ -832,9 +832,9 @@ sensor_get_type_traits_bytype(sensor_type_t type, struct sensor *sensor)
  * @return 0 on success, non-zero error code on failure
  */
 struct sensor *
-sensor_mgr_find_next_bydevname(char *devname, struct sensor *prev_cursor)
+sensor_mgr_find_next_bydevname(const char *devname, struct sensor *prev_cursor)
 {
-    return (sensor_mgr_find_next(sensor_mgr_match_bydevname, devname,
+    return (sensor_mgr_find_next(sensor_mgr_match_bydevname, (char *)devname,
             prev_cursor));
 }
 
@@ -849,6 +849,60 @@ sensor_pkg_init(void)
 
 #if MYNEWT_VAL(SENSOR_CLI)
     sensor_shell_register();
+#endif
+}
+
+/**
+ * Lock access to the sensor_itf specified by si. Blocks until lock acquired.
+ *
+ * @param The sensor_itf to lock
+ * @param The timeout
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int
+sensor_itf_lock(struct sensor_itf *si, uint32_t timeout)
+{
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    int rc;
+    os_time_t ticks;
+
+    if (!si->si_lock) {
+        return 0;
+    }
+
+    rc = os_time_ms_to_ticks(timeout, &ticks);
+    if (rc) {
+        return rc;
+    }
+
+    rc = os_mutex_pend(si->si_lock, ticks);
+    if (rc == 0 || rc == OS_NOT_STARTED) {
+        return (0);
+    }
+
+    return (rc);
+#else
+    return 0;
+#endif
+}
+
+/**
+ * Unlock access to the sensor_itf specified by si.
+ *
+ * @param The sensor_itf to unlock access to
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+void
+sensor_itf_unlock(struct sensor_itf *si)
+{
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    if (!si->si_lock) {
+        return;
+    }
+
+    os_mutex_release(si->si_lock);
 #endif
 }
 
@@ -882,7 +936,6 @@ sensor_unlock(struct sensor *sensor)
 {
     os_mutex_release(&sensor->s_lock);
 }
-
 
 /**
  * Initialize a sensor
@@ -973,6 +1026,27 @@ sensor_unregister_listener(struct sensor *sensor,
             break;
         }
     }
+
+    sensor_unlock(sensor);
+
+    return (0);
+err:
+    return (rc);
+}
+
+int
+sensor_register_err_func(struct sensor *sensor, sensor_error_func_t err_fn,
+                         void *arg)
+{
+    int rc;
+
+    rc = sensor_lock(sensor);
+    if (rc != 0) {
+        goto err;
+    }
+
+    sensor->s_err_fn = err_fn;
+    sensor->s_err_arg = arg;
 
     sensor_unlock(sensor);
 
@@ -1247,7 +1321,8 @@ sensor_up_timestamp(struct sensor *sensor)
  * @return NULL on failure, sensor struct on success
  */
 struct sensor *
-sensor_get_type_traits_byname(char *devname, struct sensor_type_traits **stt,
+sensor_get_type_traits_byname(const char *devname,
+                              struct sensor_type_traits **stt,
                               sensor_type_t type)
 {
     struct sensor *sensor;
@@ -1884,7 +1959,7 @@ sensor_set_trigger_cmp_algo(struct sensor *sensor, struct sensor_type_traits *st
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_set_thresh(char *devname, struct sensor_type_traits *stt)
+sensor_set_thresh(const char *devname, struct sensor_type_traits *stt)
 {
     struct sensor_type_traits *stt_tmp;
     struct sensor *sensor;
@@ -1948,7 +2023,7 @@ err:
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_clear_low_thresh(char *devname, sensor_type_t type)
+sensor_clear_low_thresh(const char *devname, sensor_type_t type)
 {
     struct sensor *sensor;
     struct sensor_type_traits *stt_tmp;
@@ -1989,7 +2064,7 @@ err:
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_clear_high_thresh(char *devname, sensor_type_t type)
+sensor_clear_high_thresh(const char *devname, sensor_type_t type)
 {
     struct sensor *sensor;
     struct sensor_type_traits *stt_tmp;
@@ -2116,6 +2191,9 @@ sensor_read(struct sensor *sensor, sensor_type_t type,
     rc = sensor->s_funcs->sd_read(sensor, type, sensor_read_data_func, &src,
                                   timeout);
     if (rc) {
+        if (sensor->s_err_fn != NULL) {
+            sensor->s_err_fn(sensor, sensor->s_err_arg, rc);
+        }
         goto err;
     }
 

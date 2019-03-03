@@ -138,7 +138,7 @@ struct os_dev {
     /** Device flags.  */
     uint8_t od_flags;
     /** Device name */
-    char *od_name;
+    const char *od_name;
     STAILQ_ENTRY(os_dev) od_next;
 };
 
@@ -157,16 +157,7 @@ struct os_dev {
  *
  * @return 0 on success, non-zero error code on failure.
  */
-static inline int
-os_dev_suspend(struct os_dev *dev, os_time_t suspend_t, uint8_t force)
-{
-    if (dev->od_handlers.od_suspend == NULL) {
-        return (0);
-    } else {
-        return (dev->od_handlers.od_suspend(dev, suspend_t, force));
-    }
-}
-
+int os_dev_suspend(struct os_dev *dev, os_time_t suspend_t, uint8_t force);
 
 /**
  * Resume the device operation.
@@ -175,15 +166,7 @@ os_dev_suspend(struct os_dev *dev, os_time_t suspend_t, uint8_t force)
  *
  * @return 0 on success, non-zero error code on failure.
  */
-static inline int
-os_dev_resume(struct os_dev *dev)
-{
-    if (dev->od_handlers.od_resume == NULL) {
-        return (0);
-    } else {
-        return (dev->od_handlers.od_resume(dev));
-    }
-}
+int os_dev_resume(struct os_dev *dev);
 
 /**
  * Create a new device in the kernel.
@@ -199,7 +182,7 @@ os_dev_resume(struct os_dev *dev)
  *
  * @return 0 on success, non-zero on failure.
  */
-int os_dev_create(struct os_dev *dev, char *name, uint8_t stage,
+int os_dev_create(struct os_dev *dev, const char *name, uint8_t stage,
         uint8_t priority, os_dev_init_func_t od_init, void *arg);
 
 /**
@@ -212,7 +195,7 @@ int os_dev_create(struct os_dev *dev, char *name, uint8_t stage,
  *
  * @return A pointer to the device corresponding to name, or NULL if not found.
  */
-struct os_dev *os_dev_lookup(char *name);
+struct os_dev *os_dev_lookup(const char *name);
 
 /**
  * Initialize all devices for a given state.
@@ -251,7 +234,7 @@ int os_dev_resume_all(void);
  *
  * @return 0 on success, non-zero on failure.
  */
-struct os_dev *os_dev_open(char *devname, uint32_t timo, void *arg);
+struct os_dev *os_dev_open(const char *devname, uint32_t timo, void *arg);
 
 /**
  * Close a device.
@@ -269,6 +252,14 @@ int os_dev_close(struct os_dev *dev);
  * tests.
  */
 void os_dev_reset(void);
+
+/**
+ * Walk through all devices, calling callback for every device.
+ *
+ * @param walk_func Function to call
+ * @aparm arg       Argument to pass to walk_func
+ */
+void os_dev_walk(int (*walk_func)(struct os_dev *, void *), void *arg);
 
 #ifdef __cplusplus
 }

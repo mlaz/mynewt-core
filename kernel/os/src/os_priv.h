@@ -27,6 +27,10 @@
 extern "C" {
 #endif
 
+/* Run in priviliged or unprivileged Thread mode */
+#define OS_RUN_PRIV         (0)
+#define OS_RUN_UNPRIV       (1)
+
 extern struct os_task g_idle_task;
 extern struct os_task_list g_os_run_list;
 extern struct os_task_list g_os_sleep_list;
@@ -51,6 +55,19 @@ void os_msys_init(void);
                        (file), (line));                                     \
     }                                                                       \
 } while (0)
+
+#if MYNEWT_VAL(OS_CRASH_STACKTRACE)
+/**
+ * Print addresses from stack which look like they might be instruction
+ * pointers. Expects to be called from assert/fault handler. Function limits
+ * the amount of stack it walks.
+ *
+ * @param sp Pointer to where stack starts.
+ */
+void os_stacktrace(uintptr_t sp);
+#else
+#define os_stacktrace(sp)
+#endif
 
 #ifdef __cplusplus
 }

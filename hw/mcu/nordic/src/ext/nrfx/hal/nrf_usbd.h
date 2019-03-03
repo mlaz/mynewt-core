@@ -1,25 +1,25 @@
-/**
- * Copyright (c) 2017, Nordic Semiconductor ASA
+/*
+ * Copyright (c) 2017 - 2018, Nordic Semiconductor ASA
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
  *    list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
@@ -109,7 +109,6 @@ typedef enum
     NRF_USBD_EVENT_USBEVENT      = offsetof(NRF_USBD_Type, EVENTS_USBEVENT   ), /**< An event or an error not covered by specific events has occurred, check EVENTCAUSE register to find the cause */
     NRF_USBD_EVENT_EP0SETUP      = offsetof(NRF_USBD_Type, EVENTS_EP0SETUP   ), /**< A valid SETUP token has been received (and acknowledged) on the control endpoint */
     NRF_USBD_EVENT_DATAEP        = offsetof(NRF_USBD_Type, EVENTS_EPDATA     ), /**< A data transfer has occurred on a data endpoint, indicated by the EPDATASTATUS register */
-    NRF_USBD_EVENT_ACCESSFAULT   = offsetof(NRF_USBD_Type, EVENTS_ACCESSFAULT), /**< >Access to an unavailable USB register has been attempted (software or EasyDMA) */
     /*lint -restore*/
 }nrf_usbd_event_t;
 
@@ -155,7 +154,6 @@ typedef enum
     NRF_USBD_INT_USBEVENT_MASK    = USBD_INTEN_USBEVENT_Msk   , /**< Enable or disable interrupt for USBEVENT event */
     NRF_USBD_INT_EP0SETUP_MASK    = USBD_INTEN_EP0SETUP_Msk   , /**< Enable or disable interrupt for EP0SETUP event */
     NRF_USBD_INT_DATAEP_MASK      = USBD_INTEN_EPDATA_Msk     , /**< Enable or disable interrupt for EPDATA event */
-    NRF_USBD_INT_ACCESSFAULT_MASK = USBD_INTEN_ACCESSFAULT_Msk, /**< Enable or disable interrupt for ACCESSFAULT event */
 }nrf_usbd_int_mask_t;
 
 
@@ -533,37 +531,12 @@ void nrf_usbd_int_disable(uint32_t int_mask)
  */
 typedef enum
 {
-    NRF_USBD_EVENTCAUSE_ISOOUTCRC_MASK    = USBD_EVENTCAUSE_ISOOUTCRC_Msk, /**< CRC error was detected on isochronous OUT endpoint 8. */
-    NRF_USBD_EVENTCAUSE_SUSPEND_MASK      = USBD_EVENTCAUSE_SUSPEND_Msk  , /**< Signals that the USB lines have been seen idle long enough for the device to enter suspend. */
-    NRF_USBD_EVENTCAUSE_RESUME_MASK       = USBD_EVENTCAUSE_RESUME_Msk   , /**< Signals that a RESUME condition (K state or activity restart) has been detected on the USB lines. */
-    NRF_USBD_EVENTCAUSE_READY_MASK        = USBD_EVENTCAUSE_READY_Msk,     /**< MAC is ready for normal operation, rised few us after USBD enabling */
-    NRF_USBD_EVENTCAUSE_WUREQ_MASK        = (1U << 10)                     /**< The USBD peripheral has exited Low Power mode */
+    NRF_USBD_EVENTCAUSE_ISOOUTCRC_MASK    = USBD_EVENTCAUSE_ISOOUTCRC_Msk,      /**< CRC error was detected on isochronous OUT endpoint 8. */
+    NRF_USBD_EVENTCAUSE_SUSPEND_MASK      = USBD_EVENTCAUSE_SUSPEND_Msk,        /**< Signals that the USB lines have been seen idle long enough for the device to enter suspend. */
+    NRF_USBD_EVENTCAUSE_RESUME_MASK       = USBD_EVENTCAUSE_RESUME_Msk,         /**< Signals that a RESUME condition (K state or activity restart) has been detected on the USB lines. */
+	NRF_USBD_EVENTCAUSE_WUREQ_MASK        = USBD_EVENTCAUSE_USBWUALLOWED_Msk,   /**< The USBD peripheral has exited Low Power mode */
+    NRF_USBD_EVENTCAUSE_READY_MASK        = USBD_EVENTCAUSE_READY_Msk,          /**< MAC is ready for normal operation, rised few us after USBD enabling */
 }nrf_usbd_eventcause_mask_t;
-
-/**
- * @brief BUSSTATE register bit masks
- */
-typedef enum
-{
-    NRF_USBD_BUSSTATE_DM_MASK = USBD_BUSSTATE_DM_Msk, /**< Negative line mask */
-    NRF_USBD_BUSSTATE_DP_MASK = USBD_BUSSTATE_DP_Msk, /**< Positive line mask */
-    /** Both lines are low */
-    NRF_USBD_BUSSTATE_DPDM_LL = (USBD_BUSSTATE_DM_Low  << USBD_BUSSTATE_DM_Pos) | (USBD_BUSSTATE_DP_Low  << USBD_BUSSTATE_DP_Pos),
-    /** Positive line is high, negative line is low */
-    NRF_USBD_BUSSTATE_DPDM_HL = (USBD_BUSSTATE_DM_Low  << USBD_BUSSTATE_DM_Pos) | (USBD_BUSSTATE_DP_High << USBD_BUSSTATE_DP_Pos),
-    /** Positive line is low, negative line is high */
-    NRF_USBD_BUSSTATE_DPDM_LH = (USBD_BUSSTATE_DM_High << USBD_BUSSTATE_DM_Pos) | (USBD_BUSSTATE_DP_Low  << USBD_BUSSTATE_DP_Pos),
-    /** Both lines are high */
-    NRF_USBD_BUSSTATE_DPDM_HH = (USBD_BUSSTATE_DM_High << USBD_BUSSTATE_DM_Pos) | (USBD_BUSSTATE_DP_High << USBD_BUSSTATE_DP_Pos),
-    /** J state */
-    NRF_USBD_BUSSTATE_J = NRF_USBD_BUSSTATE_DPDM_HL,
-    /** K state */
-    NRF_USBD_BUSSTATE_K = NRF_USBD_BUSSTATE_DPDM_LH,
-    /** Single ended 0 */
-    NRF_USBD_BUSSTATE_SE0 = NRF_USBD_BUSSTATE_DPDM_LL,
-    /** Single ended 1 */
-    NRF_USBD_BUSSTATE_SE1 = NRF_USBD_BUSSTATE_DPDM_HH
-}nrf_usbd_busstate_t;
 
 /**
  * @brief DPDMVALUE register
@@ -640,9 +613,18 @@ typedef enum
  */
 typedef enum
 {
-    NRF_USBD_ISOSPLIT_OneDir = USBD_ISOSPLIT_SPLIT_OneDir, /**< Full buffer dedicated to either iso IN or OUT */
-    NRF_USBD_ISOSPLIT_Half   = USBD_ISOSPLIT_SPLIT_HalfIN, /**< Buffer divided in half */
+    NRF_USBD_ISOSPLIT_ONEDIR = USBD_ISOSPLIT_SPLIT_OneDir, /**< Full buffer dedicated to either iso IN or OUT */
+    NRF_USBD_ISOSPLIT_HALF   = USBD_ISOSPLIT_SPLIT_HalfIN, /**< Buffer divided in half */
 }nrf_usbd_isosplit_t;
+
+/**
+ * @brief ISOINCONFIG configurations
+ */
+typedef enum
+{
+    NRF_USBD_ISOINCONFIG_NORESP   = USBD_ISOINCONFIG_RESPONSE_NoResp,   /**< Endpoint does not respond to an ISO IN token when no data is ready */
+    NRF_USBD_ISOINCONFIG_ZERODATA = USBD_ISOINCONFIG_RESPONSE_ZeroData, /**< Endpoint responds with a zero-length data packet to an ISO IN token when no data is ready */
+}nrf_usbd_isoinconfig_t;
 
 /**
  * @brief Function for enabling USBD
@@ -677,13 +659,6 @@ __STATIC_INLINE void nrf_usbd_eventcause_clear(uint32_t flags);
  * @return Flag values defined in @ref nrf_usbd_eventcause_mask_t
  */
 __STATIC_INLINE uint32_t nrf_usbd_eventcause_get_and_clear(void);
-
-/**
- * @brief Function for getting BUSSTATE register value
- *
- * @return The value of BUSSTATE register
- */
-__STATIC_INLINE nrf_usbd_busstate_t nrf_usbd_busstate_get(void);
 
 /**
  * @brief Function for getting HALTEDEPIN register value
@@ -983,6 +958,20 @@ __STATIC_INLINE void nrf_usbd_lowpower_disable(void);
 __STATIC_INLINE bool nrf_usbd_lowpower_check(void);
 
 /**
+ * @brief Function for configuring ISO IN endpoint response to an IN token when no data is ready to be sent.
+ *
+ * @param config Required configuration
+ */
+__STATIC_INLINE void nrf_usbd_isoinconfig_set(nrf_usbd_isoinconfig_t config);
+
+/**
+ * @brief Function for getting the cofiguration of ISO IN endpoint response to an IN token when no data is ready to be sent.
+ *
+ * @return Current configuration
+ */
+__STATIC_INLINE nrf_usbd_isoinconfig_t nrf_usbd_isoinconfig_get(void);
+
+/**
  * @brief Function for configuring EasyDMA channel
  *
  * Configures EasyDMA for the transfer.
@@ -1052,22 +1041,17 @@ uint32_t nrf_usbd_eventcause_get_and_clear(void)
     return ret;
 }
 
-nrf_usbd_busstate_t nrf_usbd_busstate_get(void)
-{
-    return (nrf_usbd_busstate_t)(NRF_USBD->BUSSTATE);
-}
-
 uint32_t nrf_usbd_haltedep(uint8_t ep)
 {
     uint8_t epnr = NRF_USBD_EP_NR_GET(ep);
     if (NRF_USBD_EPIN_CHECK(ep))
     {
-        NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->HALTED.EPIN));
+        NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->HALTED.EPIN));
         return NRF_USBD->HALTED.EPIN[epnr];
     }
     else
     {
-        NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->HALTED.EPOUT));
+        NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->HALTED.EPOUT));
         return NRF_USBD->HALTED.EPOUT[epnr];
     }
 }
@@ -1116,8 +1100,6 @@ uint32_t nrf_usbd_epdatastatus_get_and_clear(void)
     uint32_t ret;
     ret = nrf_usbd_epdatastatus_get();
     nrf_usbd_epdatastatus_clear(ret);
-    __ISB();
-    __DSB();
     return ret;
 }
 
@@ -1163,7 +1145,7 @@ size_t nrf_usbd_epout_size_get(uint8_t ep)
         return size_isoout;
     }
 
-    NRFX_ASSERT(NRF_USBD_EP_NR_GET(ep) < ARRAY_SIZE(NRF_USBD->SIZE.EPOUT));
+    NRFX_ASSERT(NRF_USBD_EP_NR_GET(ep) < NRFX_ARRAY_SIZE(NRF_USBD->SIZE.EPOUT));
     return NRF_USBD->SIZE.EPOUT[NRF_USBD_EP_NR_GET(ep)];
 }
 
@@ -1187,7 +1169,7 @@ size_t nrf_usbd_episoout_size_get(uint8_t ep)
 
 void nrf_usbd_epout_clear(uint8_t ep)
 {
-    NRFX_ASSERT(NRF_USBD_EPOUT_CHECK(ep) && (NRF_USBD_EP_NR_GET(ep) < ARRAY_SIZE(NRF_USBD->SIZE.EPOUT)));
+    NRFX_ASSERT(NRF_USBD_EPOUT_CHECK(ep) && (NRF_USBD_EP_NR_GET(ep) < NRFX_ARRAY_SIZE(NRF_USBD->SIZE.EPOUT)));
     NRF_USBD->SIZE.EPOUT[NRF_USBD_EP_NR_GET(ep)] = 0;
     __ISB();
     __DSB();
@@ -1219,8 +1201,8 @@ void nrf_usbd_dpdmvalue_set(nrf_usbd_dpdmvalue_t val)
 
 void nrf_usbd_dtoggle_set(uint8_t ep, nrf_usbd_dtoggle_t op)
 {
-    ASSERT(NRF_USBD_EP_VALIDATE(ep));
-    ASSERT(!NRF_USBD_EPISO_CHECK(ep));
+    NRFX_ASSERT(NRF_USBD_EP_VALIDATE(ep));
+    NRFX_ASSERT(!NRF_USBD_EPISO_CHECK(ep));
     NRF_USBD->DTOGGLE = ep | (NRF_USBD_DTOGGLE_NOP << USBD_DTOGGLE_VALUE_Pos);
     __DSB();
     NRF_USBD->DTOGGLE = ep | (op << USBD_DTOGGLE_VALUE_Pos);
@@ -1341,6 +1323,16 @@ bool nrf_usbd_lowpower_check(void)
     return (NRF_USBD->LOWPOWER != (USBD_LOWPOWER_LOWPOWER_ForceNormal << USBD_LOWPOWER_LOWPOWER_Pos));
 }
 
+void nrf_usbd_isoinconfig_set(nrf_usbd_isoinconfig_t config)
+{
+    NRF_USBD->ISOINCONFIG = ((uint32_t)config) << USBD_ISOINCONFIG_RESPONSE_Pos;
+}
+
+nrf_usbd_isoinconfig_t nrf_usbd_isoinconfig_get(void)
+{
+    return (nrf_usbd_isoinconfig_t)
+        (((NRF_USBD->ISOINCONFIG) & USBD_ISOINCONFIG_RESPONSE_Msk) >> USBD_ISOINCONFIG_RESPONSE_Pos);
+}
 
 void nrf_usbd_ep_easydma_set(uint8_t ep, uint32_t ptr, uint32_t maxcnt)
 {
@@ -1354,7 +1346,7 @@ void nrf_usbd_ep_easydma_set(uint8_t ep, uint32_t ptr, uint32_t maxcnt)
         else
         {
             uint8_t epnr = NRF_USBD_EP_NR_GET(ep);
-            NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->EPIN));
+            NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->EPIN));
             NRF_USBD->EPIN[epnr].PTR    = ptr;
             NRF_USBD->EPIN[epnr].MAXCNT = maxcnt;
         }
@@ -1369,7 +1361,7 @@ void nrf_usbd_ep_easydma_set(uint8_t ep, uint32_t ptr, uint32_t maxcnt)
         else
         {
             uint8_t epnr = NRF_USBD_EP_NR_GET(ep);
-            NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->EPOUT));
+            NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->EPOUT));
             NRF_USBD->EPOUT[epnr].PTR    = ptr;
             NRF_USBD->EPOUT[epnr].MAXCNT = maxcnt;
         }
@@ -1389,7 +1381,7 @@ uint32_t nrf_usbd_ep_amount_get(uint8_t ep)
         else
         {
             uint8_t epnr = NRF_USBD_EP_NR_GET(ep);
-            NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->EPOUT));
+            NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->EPOUT));
             ret = NRF_USBD->EPIN[epnr].AMOUNT;
         }
     }
@@ -1402,7 +1394,7 @@ uint32_t nrf_usbd_ep_amount_get(uint8_t ep)
         else
         {
             uint8_t epnr = NRF_USBD_EP_NR_GET(ep);
-            NRFX_ASSERT(epnr < ARRAY_SIZE(NRF_USBD->EPOUT));
+            NRFX_ASSERT(epnr < NRFX_ARRAY_SIZE(NRF_USBD->EPOUT));
             ret = NRF_USBD->EPOUT[epnr].AMOUNT;
         }
     }

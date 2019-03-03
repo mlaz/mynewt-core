@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Package: test/crash_test
-
 syscfg.defs:
     CRASH_TEST_CLI:
         description: 'CLI for trying out crashes'
@@ -26,3 +24,7 @@ syscfg.defs:
     CRASH_TEST_NEWTMGR:
         description: 'Newtmgr commands for crashing'
         value: 1
+    CRASH_TEST_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for crash test functionality.
+        value: 500

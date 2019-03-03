@@ -309,7 +309,7 @@ config_test_fill_area(
 {
       int i, j;
 
-      for (j = 0; j < 64; j++) {
+      for (j = 0; j < CONF_TEST_FCB_VAL_STR_CNT; j++) {
           for (i = 0; i < CONF_MAX_VAL_LEN; i++) {
               test_value[j][i] = ((j * 2) + i + iteration) % 10 + '0';
           }
@@ -332,6 +332,8 @@ TEST_CASE_DECL(config_test_insert3)
 TEST_CASE_DECL(config_test_save_3_fcb)
 TEST_CASE_DECL(config_test_compress_reset)
 TEST_CASE_DECL(config_test_save_one_fcb)
+TEST_CASE_DECL(config_test_custom_compress)
+TEST_CASE_DECL(config_test_get_stored_fcb)
 
 TEST_SUITE(config_test_all)
 {
@@ -361,8 +363,10 @@ TEST_SUITE(config_test_all)
     config_test_save_3_fcb();
 
     config_test_compress_reset();
+    config_test_custom_compress();
 
     config_test_save_one_fcb();
+    config_test_get_stored_fcb();
 }
 
 #if MYNEWT_VAL(SELFTEST)

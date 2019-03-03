@@ -15,6 +15,8 @@
 // <0=> RC
 // <1=> XTAL
 // <2=> Synth
+// <131073=> External Low Swing
+// <196609=> External Full Swing
 
 #ifndef NRFX_CLOCK_CONFIG_LF_SRC
 #define NRFX_CLOCK_CONFIG_LF_SRC 1
@@ -915,7 +917,7 @@
 
 
 #ifndef NRFX_RNG_CONFIG_ERROR_CORRECTION
-#define NRFX_RNG_CONFIG_ERROR_CORRECTION 0
+#define NRFX_RNG_CONFIG_ERROR_CORRECTION 1
 #endif
 
 // <o> NRFX_RNG_CONFIG_IRQ_PRIORITY  - Interrupt priority
@@ -1314,26 +1316,6 @@
 
 #ifndef NRFX_SPIS_DEFAULT_CONFIG_IRQ_PRIORITY
 #define NRFX_SPIS_DEFAULT_CONFIG_IRQ_PRIORITY 7
-#endif
-
-// <o> NRFX_SPIS_DEFAULT_MODE  - Mode
-
-// <0=> MODE_0
-// <1=> MODE_1
-// <2=> MODE_2
-// <3=> MODE_3
-
-#ifndef NRFX_SPIS_DEFAULT_MODE
-#define NRFX_SPIS_DEFAULT_MODE 0
-#endif
-
-// <o> NRFX_SPIS_DEFAULT_BIT_ORDER  - SPIS default bit order
-
-// <0=> MSB first
-// <1=> LSB first
-
-#ifndef NRFX_SPIS_DEFAULT_BIT_ORDER
-#define NRFX_SPIS_DEFAULT_BIT_ORDER 0
 #endif
 
 // <o> NRFX_SPIS_DEFAULT_DEF - SPIS default DEF character  <0-255>

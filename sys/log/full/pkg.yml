@@ -25,25 +25,30 @@ pkg.keywords:
     - logging
 
 pkg.deps:
-    - kernel/os
-    - sys/flash_map
-    - util/cbmem
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/sys/flash_map"
+    - "@apache-mynewt-core/sys/log/common"
+    - "@apache-mynewt-core/util/cbmem"
 pkg.deps.LOG_FCB:
-    - hw/hal
-    - fs/fcb
+    - "@apache-mynewt-core/hw/hal"
+    - "@apache-mynewt-core/fs/fcb"
 pkg.deps.LOG_CLI:
-    - sys/shell
+    - "@apache-mynewt-core/sys/shell"
+    - "@apache-mynewt-core/encoding/base64"
 
 pkg.deps.LOG_NEWTMGR:
-    - mgmt/mgmt
-    - encoding/cborattr
-    - encoding/tinycbor
+    - "@apache-mynewt-core/mgmt/mgmt"
+    - "@apache-mynewt-core/encoding/cborattr"
+    - "@apache-mynewt-core/encoding/tinycbor"
+
+pkg.deps.LOG_STORAGE_WATERMARK:
+    - sys/config
 
 pkg.apis:
     - log
 
 pkg.init:
-    log_init: 100
+    log_init: 'MYNEWT_VAL(LOG_SYSINIT_STAGE_MAIN)'
 
 pkg.init.LOG_FCB_SLOT1:
-    log_init_slot1: 101
+    log_init_slot1: 'MYNEWT_VAL(LOG_SYSINIT_STAGE_SLOT1)'

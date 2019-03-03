@@ -20,12 +20,20 @@
 #ifndef _OS_FAULT_H
 #define _OS_FAULT_H
 
+#include "syscfg/syscfg.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void __assert_func(const char *, int, const char *, const char *)
+void __assert_func(const char *file, int line, const char *func, const char *e)
     __attribute((noreturn));
+
+#if MYNEWT_VAL(OS_CRASH_FILE_LINE)
+#define OS_CRASH() __assert_func(__FILE__, __LINE__, NULL, NULL)
+#else
+#define OS_CRASH() __assert_func(NULL, 0, NULL, NULL)
+#endif
 
 #ifdef __cplusplus
 }

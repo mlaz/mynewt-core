@@ -90,9 +90,9 @@ os_error_t os_mutex_release(struct os_mutex *mu);
  * Pend (wait) for a mutex.
  *
  * @param mu Pointer to mutex.
- * @param timeout Timeout, in os ticks. A timeout of 0 means do
- *                not wait if not available. A timeout of
- *                0xFFFFFFFF means wait forever.
+ * @param timeout Timeout, in os ticks.
+ *                A timeout of 0 means do not wait if not available.
+ *                A timeout of OS_TIMEOUT_NEVER means wait forever.
  *
  *
  * @return os_error_t
@@ -100,7 +100,27 @@ os_error_t os_mutex_release(struct os_mutex *mu);
  *      OS_TIMEOUT          Mutex was owned by another task and timeout=0
  *      OS_OK               no error.
  */
-os_error_t os_mutex_pend(struct os_mutex *mu, uint32_t timeout);
+os_error_t os_mutex_pend(struct os_mutex *mu, os_time_t timeout);
+
+/**
+ * Get mutex lock count.
+ *
+ * @note Function should be called from task owning the mutex (one that
+ * successfully called os_mutex_pend). Calling function from other task
+ * that does not own the mutex will return value that has little value
+ * to the caller since value can change at any time by other task.
+ *
+ * It can also be called from interrupt context to check if given mutex
+ * is taken.
+ *
+ * @param mu Pointer to mutex.
+ *
+ * @return number of times lock was called from current task
+ */
+static inline os_error_t os_mutex_get_level(struct os_mutex *mu)
+{
+    return mu->mu_level;
+}
 
 #ifdef __cplusplus
 }

@@ -114,6 +114,13 @@ os_task_init(struct os_task *t, const char *name, os_task_func_t func,
     os_trace_task_create(t);
     os_trace_task_info(t);
 
+    /* Allow a preemption in case the new task has a higher priority than the
+     * current one.
+     */
+    if (os_started()) {
+        os_sched(NULL);
+    }
+
     return (0);
 err:
     return (rc);
@@ -122,15 +129,13 @@ err:
 int
 os_task_remove(struct os_task *t)
 {
-    struct os_task *current;
     int rc;
     os_sr_t sr;
 
-    current = os_sched_get_current_task();
     /*
      * Can't suspend yourself
      */
-    if (t->t_taskid == current->t_taskid) {
+    if (t == os_sched_get_current_task()) {
         return OS_INVALID_PARM;
     }
 

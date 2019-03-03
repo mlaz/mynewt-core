@@ -1,4 +1,4 @@
-/*
+nnnnnnnnnnnnn/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -291,10 +291,16 @@ hal_uart_baudrate(int baudrate)
         return UARTE_BAUDRATE_BAUDRATE_Baud4800;
     case 9600:
         return UARTE_BAUDRATE_BAUDRATE_Baud9600;
+    case 14400:
+        return UARTE_BAUDRATE_BAUDRATE_Baud14400;
     case 19200:
         return UARTE_BAUDRATE_BAUDRATE_Baud19200;
+    case 28800:
+        return UARTE_BAUDRATE_BAUDRATE_Baud28800;
     case 38400:
         return UARTE_BAUDRATE_BAUDRATE_Baud38400;
+    case 56000:
+        return UARTE_BAUDRATE_BAUDRATE_Baud56000;
     case 57600:
         return UARTE_BAUDRATE_BAUDRATE_Baud57600;
     case 76800:
@@ -303,6 +309,8 @@ hal_uart_baudrate(int baudrate)
         return UARTE_BAUDRATE_BAUDRATE_Baud115200;
     case 230400:
         return UARTE_BAUDRATE_BAUDRATE_Baud230400;
+    case 250000:
+        return UARTE_BAUDRATE_BAUDRATE_Baud250000;
     case 460800:
         return UARTE_BAUDRATE_BAUDRATE_Baud460800;
     case 921600:
@@ -450,7 +458,7 @@ hal_uart_config(int port, int32_t baudrate, uint8_t databits, uint8_t stopbits,
 int
 hal_uart_close(int port)
 {
-    struct hal_uart *u;
+    volatile struct hal_uart *u;
     NRF_UARTE_Type *nrf_uart;
 
 #if defined(NRF52840_XXAA)
@@ -472,6 +480,9 @@ hal_uart_close(int port)
 #endif
 
     u->u_open = 0;
+    while (u->u_tx_started) {
+        /* Wait here until the dma is finished */
+    }
     nrf_uart->ENABLE = 0;
     nrf_uart->INTENCLR = 0xffffffff;
     return 0;

@@ -31,19 +31,21 @@
 #include "sensor/pressure.h"
 #include "bme280_priv.h"
 #include "hal/hal_gpio.h"
-#include "log/log.h"
+#include "modlog/modlog.h"
 #include "stats/stats.h"
 
 #ifndef MATHLIB_SUPPORT
 static double NAN = 0.0/0.0;
 #endif
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
 static struct hal_spi_settings spi_bme280_settings = {
     .data_order = HAL_SPI_MSB_FIRST,
     .data_mode  = HAL_SPI_MODE0,
     .baudrate   = 4000,
     .word_size  = HAL_SPI_WORD_SIZE_8BIT,
 };
+#endif
 
 /* Define the stats section and records */
 STATS_SECT_START(bme280_stat_section)
@@ -62,10 +64,8 @@ STATS_NAME_END(bme280_stat_section)
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(bme280_stat_section) g_bme280stats;
 
-#define LOG_MODULE_BME280    (280)
-#define BME280_INFO(...)     LOG_INFO(&_log, LOG_MODULE_BME280, __VA_ARGS__)
-#define BME280_ERR(...)      LOG_ERROR(&_log, LOG_MODULE_BME280, __VA_ARGS__)
-static struct log _log;
+#define BME280_LOG(lvl_, ...) \
+    MODLOG_ ## lvl_(MYNEWT_VAL(BME280_LOG_MODULE), __VA_ARGS__)
 
 /* Exports for the sensor API */
 static int bme280_sensor_read(struct sensor *, sensor_type_t,
@@ -122,8 +122,6 @@ bme280_init(struct os_dev *dev, void *arg)
         goto err;
     }
 
-    log_register(dev->od_name, &_log, &log_console_handler, NULL, LOG_SYSLEVEL);
-
     sensor = &bme280->sensor;
 
     /* Initialise the stats entry */
@@ -161,6 +159,7 @@ bme280_init(struct os_dev *dev, void *arg)
         goto err;
     }
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
     rc = hal_spi_config(sensor->s_itf.si_num, &spi_bme280_settings);
     if (rc == EINVAL) {
         /* If spi is already enabled, for nrf52, it returns -1, We should not
@@ -178,6 +177,7 @@ bme280_init(struct os_dev *dev, void *arg)
     if (rc) {
         goto err;
     }
+#endif
 
     return (0);
 err:
@@ -199,8 +199,8 @@ bme280_compensate_temperature(int32_t rawtemp, struct bme280_pdd *pdd)
 {
     double var1, var2, comptemp;
 
-    if (rawtemp == 0x800000) {
-        BME280_ERR("Invalid temp data\n");
+    if (rawtemp == 0x80000) {
+        BME280_LOG(ERROR, "Invalid temp data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -234,8 +234,8 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     double var1, var2, p;
     int32_t temp;
 
-    if (rawpress == 0x800000) {
-        BME280_ERR("Invalid press data\n");
+    if (rawpress == 0x80000) {
+        BME280_LOG(ERROR, "Invalid press data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -286,7 +286,7 @@ bme280_compensate_humidity(struct sensor_itf *itf, int32_t rawhumid,
     int32_t temp;
 
     if (rawhumid == 0x8000) {
-        BME280_ERR("Invalid humidity data\n");
+        BME280_LOG(ERROR, "Invalid humidity data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -330,12 +330,10 @@ bme280_compensate_temperature(int32_t rawtemp, struct bme280_pdd *pdd)
     int32_t var1, var2, comptemp;
 
     if (rawtemp == 0x800000) {
-        BME280_ERR("Invalid temp data\n");
+        BME280_LOG(ERROR, "Invalid temp data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
-
-    rawtemp >>= 4;
 
     var1 = ((((rawtemp>>3) - ((int32_t)pdd->bcd.bcd_dig_T1 <<1))) *
             ((int32_t)pdd->bcd.bcd_dig_T2)) >> 11;
@@ -366,8 +364,8 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     int64_t var1, var2, p;
     int32_t temp;
 
-    if (rawpress == 0x800000) {
-        BME280_ERR("Invalid pressure data\n");
+    if (rawpress == 0x80000) {
+        BME280_LOG(ERROR, "Invalid pressure data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -377,8 +375,6 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
             (void)bme280_compensate_temperature(temp, pdd);
         }
     }
-
-    rawpress >>= 4;
 
     var1 = ((int64_t)pdd->t_fine) - 128000;
     var2 = var1 * var1 * (int64_t)pdd->bcd.bcd_dig_P6;
@@ -413,25 +409,25 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
  */
 static float
 bme280_compensate_humidity(struct sensor_itf *itf, uint32_t rawhumid,
-                           struct bme280_calib_data *bcd)
+                           struct bme280_pdd *pdd)
 {
     int32_t h;
     int32_t temp;
     int32_t tmp32;
 
     if (rawhumid == 0x8000) {
-        BME280_ERR("Invalid humidity data\n");
+        BME280_LOG(ERROR, "Invalid humidity data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
 
-    if (!g_t_fine) {
-        if(!bme280_get_temperature(&temp)) {
-            (void)bme280_compensate_temperature(temp, bcd);
+    if (!pdd->t_fine) {
+        if(!bme280_get_temperature(itf, &temp)) {
+            (void)bme280_compensate_temperature(temp, pdd);
         }
     }
 
-    tmp32 = (g_t_fine - ((int32_t)76800));
+    tmp32 = (pdd->t_fine - ((int32_t)76800));
 
     tmp32 = (((((rawhumid << 14) - (((int32_t)pdd->bcd.bcd_dig_H4) << 20) -
              (((int32_t)pdd->bcd.bcd_dig_H5) * tmp32)) + ((int32_t)16384)) >> 15) *
@@ -493,13 +489,42 @@ bme280_sensor_read(struct sensor *sensor, sensor_type_t type,
 
     rawtemp = rawpress = rawhumid = 0;
 
+    /* Get a new temperature sample always */
+    rc = bme280_get_temperature(itf, &rawtemp);
+    if (rc) {
+        goto err;
+    }
+    databuf.std.std_temp = bme280_compensate_temperature(rawtemp, &(bme280->pdd));
+
     /* Get a new pressure sample */
     if (type & SENSOR_TYPE_PRESSURE) {
         rc = bme280_get_pressure(itf, &rawpress);
         if (rc) {
             goto err;
         }
+    }
 
+    /* Get a new relative humidity sample */
+    if (type & SENSOR_TYPE_RELATIVE_HUMIDITY) {
+        rc = bme280_get_humidity(itf, &rawhumid);
+        if (rc) {
+            goto err;
+        }
+    }
+
+    if (type & SENSOR_TYPE_AMBIENT_TEMPERATURE) {
+        if (databuf.std.std_temp != NAN) {
+            databuf.std.std_temp_is_valid = 1;
+        }
+
+        /* Call data function */
+        rc = data_func(sensor, data_arg, &databuf.std, SENSOR_TYPE_AMBIENT_TEMPERATURE);
+        if (rc) {
+            goto err;
+        }
+    }
+
+    if (type & SENSOR_TYPE_PRESSURE) {
         databuf.spd.spd_press = bme280_compensate_pressure(itf, rawpress, &(bme280->pdd));
 
         if (databuf.spd.spd_press != NAN) {
@@ -513,33 +538,7 @@ bme280_sensor_read(struct sensor *sensor, sensor_type_t type,
         }
     }
 
-    /* Get a new temperature sample */
-    if (type & SENSOR_TYPE_AMBIENT_TEMPERATURE) {
-        rc = bme280_get_temperature(itf, &rawtemp);
-        if (rc) {
-            goto err;
-        }
-
-        databuf.std.std_temp = bme280_compensate_temperature(rawtemp, &(bme280->pdd));
-
-        if (databuf.std.std_temp != NAN) {
-            databuf.std.std_temp_is_valid = 1;
-        }
-
-        /* Call data function */
-        rc = data_func(sensor, data_arg, &databuf.std, SENSOR_TYPE_AMBIENT_TEMPERATURE);
-        if (rc) {
-            goto err;
-        }
-    }
-
-    /* Get a new relative humidity sample */
     if (type & SENSOR_TYPE_RELATIVE_HUMIDITY) {
-        rc = bme280_get_humidity(itf, &rawhumid);
-        if (rc) {
-            goto err;
-        }
-
         databuf.shd.shd_humid = bme280_compensate_humidity(itf, rawhumid, &(bme280->pdd));
 
         if (databuf.shd.shd_humid != NAN) {
@@ -830,9 +829,19 @@ int
 bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
                uint8_t len)
 {
+    int rc;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    /* XXX this is only required for SPI, but apparently device has no problem
+     * with this being set also for I2C so let's leave it for now since there's
+     * no API now to figure out bus type for node
+     */
+    addr |= BME280_SPI_READ_CMD_BIT;
+
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &addr, 1, payload, len);
+#else
     int i;
     uint16_t retval;
-    int rc;
 
     rc = 0;
 
@@ -843,7 +852,7 @@ bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
     retval = hal_spi_tx_val(itf->si_num, addr | BME280_SPI_READ_CMD_BIT);
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        BME280_ERR("SPI_%u register write failed addr:0x%02X\n",
+        BME280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bme280stats, read_errors);
         goto err;
@@ -854,7 +863,7 @@ bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
         retval = hal_spi_tx_val(itf->si_num, 0);
         if (retval == 0xFFFF) {
             rc = SYS_EINVAL;
-            BME280_ERR("SPI_%u read failed addr:0x%02X\n",
+            BME280_LOG(ERROR, "SPI_%u read failed addr:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bme280stats, read_errors);
             goto err;
@@ -867,6 +876,7 @@ bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
 err:
     /* De-select the device */
     hal_gpio_write(itf->si_cs_pin, 1);
+#endif
 
     return rc;
 }
@@ -884,8 +894,29 @@ int
 bme280_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
                 uint8_t len)
 {
-    int i;
     int rc;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    struct os_dev *dev = itf->si_dev;
+
+    rc = bus_node_lock(dev, OS_TIMEOUT_NEVER);
+    if (rc) {
+        return SYS_EINVAL;
+    }
+
+    addr &= ~BME280_SPI_READ_CMD_BIT;
+
+    rc = bus_node_write(dev, &addr, 1, OS_TIMEOUT_NEVER, BUS_F_NOSTOP);
+    if (rc) {
+        goto done;
+    }
+
+    rc = bus_node_simple_write(dev, payload, len);
+
+done:
+    (void)bus_node_unlock(dev);
+#else
+    int i;
 
     /* Select the device */
     hal_gpio_write(itf->si_cs_pin, 0);
@@ -894,7 +925,7 @@ bme280_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
     rc = hal_spi_tx_val(itf->si_num, addr & ~BME280_SPI_READ_CMD_BIT);
     if (rc == 0xFFFF) {
         rc = SYS_EINVAL;
-        BME280_ERR("SPI_%u register write failed addr:0x%02X\n",
+        BME280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bme280stats, write_errors);
         goto err;
@@ -905,7 +936,7 @@ bme280_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
         rc = hal_spi_tx_val(itf->si_num, payload[i]);
         if (rc == 0xFFFF) {
             rc = SYS_EINVAL;
-            BME280_ERR("SPI_%u write failed addr:0x%02X:0x%02X\n",
+            BME280_LOG(ERROR, "SPI_%u write failed addr:0x%02X:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bme280stats, write_errors);
             goto err;
@@ -918,7 +949,7 @@ bme280_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
 err:
     /* De-select the device */
     hal_gpio_write(itf->si_cs_pin, 1);
-
+#endif
     os_time_delay((OS_TICKS_PER_SEC * 30)/1000 + 1);
 
     return rc;
@@ -942,13 +973,9 @@ bme280_get_temperature(struct sensor_itf *itf, int32_t *temp)
         goto err;
     }
 
-#if MYNEWT_VAL(BME280_SPEC_CALC)
     *temp = (int32_t)((((uint32_t)(tmp[0])) << 12) |
                       (((uint32_t)(tmp[1])) <<  4) |
                        ((uint32_t)tmp[2] >> 4));
-#else
-    *temp = ((tmp[0] << 16) | (tmp[1] << 8) | tmp[2]);
-#endif
 
     return 0;
 err:
@@ -972,11 +999,7 @@ bme280_get_humidity(struct sensor_itf *itf, int32_t *humid)
     if (rc) {
         goto err;
     }
-#if MYNEWT_VAL(BME280_SPEC_CALC)
     *humid = (tmp[0] << 8 | tmp[1]);
-#else
-    *humid = (tmp[0] << 8 | tmp[1]);
-#endif
 
     return 0;
 err:
@@ -1001,13 +1024,9 @@ bme280_get_pressure(struct sensor_itf *itf, int32_t *press)
         goto err;
     }
 
-#if MYNEWT_VAL(BME280_SPEC_CALC)
     *press = (int32_t)((((uint32_t)(tmp[0])) << 12) |
                       (((uint32_t)(tmp[1])) <<  4)  |
                        ((uint32_t)tmp[2] >> 4));
-#else
-    *press = ((tmp[0] << 16) | (tmp[1] << 8) | tmp[2]);
-#endif
 
     return 0;
 err:
@@ -1352,3 +1371,47 @@ bme280_forced_mode_measurement(struct sensor_itf *itf)
 err:
     return rc;
 }
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+static void
+init_node_cb(struct bus_node *bnode, void *arg)
+{
+    struct sensor_itf *itf = arg;
+
+    bme280_init((struct os_dev *)bnode, itf);
+}
+
+int
+bme280_create_i2c_sensor_dev(struct bus_i2c_node *node, const char *name,
+                             const struct bus_i2c_node_cfg *i2c_cfg,
+                             struct sensor_itf *sensor_itf)
+{
+    struct bus_node_callbacks cbs = {
+        .init = init_node_cb,
+    };
+    int rc;
+
+    bus_node_set_callbacks((struct os_dev *)node, &cbs);
+
+    rc = bus_i2c_node_create(name, node, i2c_cfg, sensor_itf);
+
+    return rc;
+}
+
+int
+bme280_create_spi_sensor_dev(struct bus_spi_node *node, const char *name,
+                             const struct bus_spi_node_cfg *spi_cfg,
+                             struct sensor_itf *sensor_itf)
+{
+    struct bus_node_callbacks cbs = {
+        .init = init_node_cb,
+    };
+    int rc;
+
+    bus_node_set_callbacks((struct os_dev *)node, &cbs);
+
+    rc = bus_spi_node_create(name, node, spi_cfg, sensor_itf);
+
+    return rc;
+}
+#endif

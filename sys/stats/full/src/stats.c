@@ -23,6 +23,7 @@
 
 #include "os/mynewt.h"
 #include "stats/stats.h"
+#include "stats_priv.h"
 
 /**
  * Declare an example statistics section, which is fittingly, the number
@@ -79,6 +80,99 @@ STATS_NAME_END(stats)
 STAILQ_HEAD(, stats_hdr) g_stats_registry =
     STAILQ_HEAD_INITIALIZER(g_stats_registry);
 
+static size_t
+stats_offset(const struct stats_hdr *hdr)
+{
+    if (hdr->s_flags & STATS_HDR_F_PERSIST) {
+        return sizeof (struct stats_persisted_hdr);
+    } else {
+        return sizeof (struct stats_hdr);
+    }
+}
+
+size_t
+stats_size(const struct stats_hdr *hdr)
+{
+    return hdr->s_cnt * hdr->s_size;
+}
+
+void *
+stats_data(const struct stats_hdr *hdr)
+{
+    size_t offset;
+
+    offset = stats_offset(hdr);
+    return (uint8_t *)hdr + offset;
+}
+
+static int
+stats_register_internal(const char *name, struct stats_hdr *shdr)
+{
+    struct stats_hdr *cur;
+    int rc;
+
+    /* Don't allow duplicate entries, return an error if this stat
+     * is already registered.
+     */
+    STAILQ_FOREACH(cur, &g_stats_registry, s_next) {
+        if (!strcmp(cur->s_name, name)) {
+            rc = -1;
+            goto err;
+        }
+    }
+
+    shdr->s_name = name;
+
+#if MYNEWT_VAL(STATS_PERSIST)
+    if (shdr->s_flags & STATS_HDR_F_PERSIST) {
+        stats_conf_assert_valid(shdr);
+    }
+#endif
+
+    STAILQ_INSERT_TAIL(&g_stats_registry, shdr, s_next);
+
+    STATS_INC(g_stats_stats, num_registered);
+
+    return (0);
+err:
+    return (rc);
+}
+
+static int
+stats_module_init_internal(void)
+{
+    int rc;
+
+    STAILQ_INIT(&g_stats_registry);
+
+    rc = stats_init(STATS_HDR(g_stats_stats),
+                    STATS_SIZE_INIT_PARMS(g_stats_stats, STATS_SIZE_32),
+                    STATS_NAME_INIT_PARMS(stats));
+    if (rc) {
+        return rc;
+    }
+
+    rc = stats_register_internal("stat", STATS_HDR(g_stats_stats));
+    if (rc) {
+        return rc;
+    }
+
+#if MYNEWT_VAL(STATS_NEWTMGR)
+    rc = stats_nmgr_register_group();
+    if (rc) {
+        return rc;
+    }
+#endif
+
+#if MYNEWT_VAL(STATS_CLI)
+    rc = stats_shell_register();
+    if (rc) {
+        return rc;
+    }
+#endif
+
+    return rc;
+}
 
 /**
  * Walk a specific statistic entry, and call walk_func with arg for
@@ -100,6 +194,7 @@ stats_walk(struct stats_hdr *hdr, stats_walk_func_t walk_func, void *arg)
 {
     char *name;
     char name_buf[12];
+    uint16_t start;
     uint16_t cur;
     uint16_t end;
     int ent_n;
@@ -109,8 +204,9 @@ stats_walk(struct stats_hdr *hdr, stats_walk_func_t walk_func, void *arg)
     int i;
 #endif
 
-    cur = sizeof(*hdr);
-    end = sizeof(*hdr) + (hdr->s_size * hdr->s_cnt);
+    start = stats_offset(hdr);
+    cur = start;
+    end = start + stats_size(hdr);
 
     while (cur < end) {
         /*
@@ -136,7 +232,7 @@ stats_walk(struct stats_hdr *hdr, stats_walk_func_t walk_func, void *arg)
          * structure.
          */
         if (name == NULL) {
-            ent_n = (cur - sizeof(*hdr)) / hdr->s_size;
+            ent_n = (cur - start) / hdr->s_size;
             len = snprintf(name_buf, sizeof(name_buf), "s%d", ent_n);
             name_buf[len] = '\0';
             name = name_buf;
@@ -173,27 +269,17 @@ stats_module_init(void)
     /* Ensure this function only gets called by sysinit. */
     SYSINIT_ASSERT_ACTIVE();
 
-    STAILQ_INIT(&g_stats_registry);
+    /*
+     * It's possible that some stats were already registered before sysinit
+     * (e.g. from BSP) so the module is already initialized - just return here.
+     */
+    if (g_stats_stats.snum_registered) {
+        return;
+    }
 
-#if MYNEWT_VAL(STATS_CLI)
-    rc = stats_shell_register();
-    SYSINIT_PANIC_ASSERT(rc == 0);
-#endif
-
-#if MYNEWT_VAL(STATS_NEWTMGR)
-    rc = stats_nmgr_register_group();
-    SYSINIT_PANIC_ASSERT(rc == 0);
-#endif
-
-    rc = stats_init(STATS_HDR(g_stats_stats),
-                    STATS_SIZE_INIT_PARMS(g_stats_stats, STATS_SIZE_32),
-                    STATS_NAME_INIT_PARMS(stats));
-    SYSINIT_PANIC_ASSERT(rc == 0);
-
-    rc = stats_register("stat", STATS_HDR(g_stats_stats));
+    rc = stats_module_init_internal();
     SYSINIT_PANIC_ASSERT(rc == 0);
 }
-
 
 /**
  * Initialize a statistics structure, pointed to by hdr.
@@ -213,10 +299,14 @@ int
 stats_init(struct stats_hdr *shdr, uint8_t size, uint8_t cnt,
         const struct stats_name_map *map, uint8_t map_cnt)
 {
-    memset((uint8_t *) shdr+sizeof(*shdr), 0, size * cnt);
+    size_t offset;
+
+    offset = stats_offset(shdr);
+    memset((uint8_t *)shdr + offset, 0, size * cnt);
 
     shdr->s_size = size;
     shdr->s_cnt = cnt;
+    shdr->s_flags = 0;
 #if MYNEWT_VAL(STATS_NAMES)
     shdr->s_map = map;
     shdr->s_map_cnt = map_cnt;
@@ -263,7 +353,7 @@ err:
  * @return statistic structure if found, NULL if not found.
  */
 struct stats_hdr *
-stats_group_find(char *name)
+stats_group_find(const char *name)
 {
     struct stats_hdr *cur;
 
@@ -289,30 +379,20 @@ stats_group_find(char *name)
  * @return 0 on success, non-zero error code on failure.
  */
 int
-stats_register(char *name, struct stats_hdr *shdr)
+stats_register(const char *name, struct stats_hdr *shdr)
 {
-    struct stats_hdr *cur;
-    int rc;
-
-    /* Don't allow duplicate entries, return an error if this stat
-     * is already registered.
+    /*
+     * We should always have at least "stat" registered so if there are no stats
+     * registered, try to initialize module first. This allows to register stat
+     * before sysinit is called (e.g. from BSP).
      */
-    STAILQ_FOREACH(cur, &g_stats_registry, s_next) {
-        if (!strcmp(cur->s_name, name)) {
-            rc = -1;
-            goto err;
+    if (g_stats_stats.snum_registered == 0) {
+        if (stats_module_init_internal()) {
+            return -1;
         }
     }
 
-    shdr->s_name = name;
-
-    STAILQ_INSERT_TAIL(&g_stats_registry, shdr, s_next);
-
-    STATS_INC(g_stats_stats, num_registered);
-
-    return (0);
-err:
-    return (rc);
+    return stats_register_internal(name, shdr);
 }
 
 /**
@@ -332,7 +412,7 @@ err:
 int
 stats_init_and_reg(struct stats_hdr *shdr, uint8_t size, uint8_t cnt,
                    const struct stats_name_map *map, uint8_t map_cnt,
-                   char *name)
+                   const char *name)
 {
     int rc;
 
@@ -362,7 +442,7 @@ stats_reset(struct stats_hdr *hdr)
     void *stat_val;
 
     cur = sizeof(*hdr);
-    end = sizeof(*hdr) + (hdr->s_size * hdr->s_cnt);
+    end = sizeof(*hdr) + stats_size(hdr);
 
     while (cur < end) {
         stat_val = (uint8_t*)hdr + cur;

@@ -21,7 +21,7 @@
 
 #include <inttypes.h>
 #include "os/mynewt.h"
-#include "log/ignore.h"
+#include "log_common/log_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,28 +32,6 @@ extern "C" {
 #define LOG_WARN(__l, __mod, ...) IGNORE(__VA_ARGS__)
 #define LOG_ERROR(__l, __mod, ...) IGNORE(__VA_ARGS__)
 #define LOG_CRITICAL(__l, __mod, ...) IGNORE(__VA_ARGS__)
-
-#define LOG_LEVEL_DEBUG         0
-#define LOG_LEVEL_INFO          1
-#define LOG_LEVEL_WARN          2
-#define LOG_LEVEL_ERROR         3
-#define LOG_LEVEL_CRITICAL      4
-/* Up to 7 custom log levels. */
-#define LOG_LEVEL_MAX           UINT8_MAX
-#define LOG_SYSLEVEL            UINT8_MAX
-
-/* Logging medium */
-#define LOG_STORE_CONSOLE    1
-#define LOG_STORE_CBMEM      2
-#define LOG_STORE_FCB        3
-
-/* Global log info */
-struct log_info {
-    uint32_t li_next_index;
-    uint8_t li_version;
-};
-
-struct log_info g_log_info;
 
 struct log {
 };
@@ -69,6 +47,54 @@ log_register(char *name, struct log *log, const struct log_handler *h,
 }
 
 static inline void
+log_set_append_cb(struct log *log, log_append_cb *cb)
+{
+}
+
+static inline struct log *
+log_find(const char *name)
+{
+    return NULL;
+}
+
+static inline int
+log_append_typed(struct log *log, uint8_t module, uint8_t level, uint8_t etype,
+                 void *data, uint16_t len)
+{
+    return 0;
+}
+
+static inline int
+log_append_mbuf_typed_no_free(struct log *log, uint8_t module, uint8_t level,
+                              uint8_t etype, struct os_mbuf **om_ptr)
+{
+    return 0;
+}
+
+static inline int
+log_append_mbuf_typed(struct log *log, uint8_t module, uint8_t level,
+                      uint8_t etype, struct os_mbuf *om)
+{
+    os_mbuf_free_chain(om);
+    return 0;
+}
+
+static inline int
+log_append_mbuf_body_no_free(struct log *log, uint8_t module, uint8_t level,
+                             uint8_t etype, struct os_mbuf *om)
+{
+    return 0;
+}
+
+static inline int
+log_append_mbuf_body(struct log *log, uint8_t module, uint8_t level,
+                     uint8_t etype, struct os_mbuf *om)
+{
+    os_mbuf_free_chain(om);
+    return 0;
+}
+
+static inline void
 log_init(void)
 {
 }
@@ -78,11 +104,19 @@ log_init(void)
 /*
  * Dummy handler exports.
  */
-const struct log_handler log_console_handler;
-const struct log_handler log_cbmem_handler;
-const struct log_handler log_fcb_handler;
+extern const struct log_handler log_console_handler;
+extern const struct log_handler log_cbmem_handler;
+extern const struct log_handler log_fcb_handler;
 #if MYNEWT_VAL(LOG_FCB_SLOT1)
-const struct log_handler log_fcb_slot1_handler;
+extern const struct log_handler log_fcb_slot1_handler;
+#endif
+
+#if MYNEWT_VAL(LOG_CONSOLE)
+static inline struct log *
+log_console_get(void)
+{
+    return NULL;
+}
 #endif
 
 #ifdef __cplusplus

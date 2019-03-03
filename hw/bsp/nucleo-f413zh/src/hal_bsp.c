@@ -28,7 +28,6 @@
 
 #include <hal/hal_bsp.h>
 #include <hal/hal_gpio.h>
-#include <hal/hal_flash_int.h>
 #include <hal/hal_timer.h>
 
 #include <stm32f4xx_hal_gpio_ex.h>
@@ -39,6 +38,30 @@
 #include "hal/hal_spi.h"
 
 #include "bsp/bsp.h"
+
+const uint32_t stm32_flash_sectors[] = {
+    0x08000000,     /* 16kB */
+    0x08004000,     /* 16kB */
+    0x08008000,     /* 16kB */
+    0x0800c000,     /* 16kB */
+    0x08010000,     /* 64kB */
+    0x08020000,     /* 128kB */
+    0x08040000,     /* 128kB */
+    0x08060000,     /* 128kB */
+    0x08080000,     /* 128kB */
+    0x080a0000,     /* 128kB */
+    0x080c0000,     /* 128kB */
+    0x080e0000,     /* 128kB */
+    0x08100000,     /* 128kB */
+    0x08120000,     /* 128kB */
+    0x08140000,     /* 128kB */
+    0x08160000,     /* 128kB */
+    0x08180000,     /* End of flash */
+};
+
+#define SZ (sizeof(stm32_flash_sectors) / sizeof(stm32_flash_sectors[0]))
+_Static_assert(MYNEWT_VAL(STM32_FLASH_NUM_AREAS) == SZ,
+        "STM32_FLASH_NUM_AREAS does not match flash sectors");
 
 #if MYNEWT_VAL(UART_0)
 static struct uart_dev hal_uart0;
@@ -63,11 +86,11 @@ static struct stm32_hal_i2c_cfg i2c_cfg0 = {
     .hic_i2c = I2C1,
     .hic_rcc_reg = &RCC->APB1ENR,
     .hic_rcc_dev = RCC_APB1ENR_I2C1EN,
-    .hic_pin_sda = MCU_GPIO_PORTB(9),		/* PB9 */
-    .hic_pin_scl = MCU_GPIO_PORTB(8),		/* PB8 */
+    .hic_pin_sda = MCU_GPIO_PORTB(9),       /* PB9 */
+    .hic_pin_scl = MCU_GPIO_PORTB(8),       /* PB8 */
     .hic_pin_af = GPIO_AF4_I2C1,
     .hic_10bit = 0,
-    .hic_speed = 100000				/* 100kHz */
+    .hic_speed = 100000,                    /* 100kHz */
 };
 #endif
 
@@ -105,6 +128,7 @@ static const struct hal_bsp_mem_dump dump_cfg[] = {
     }
 };
 
+extern const struct hal_flash stm32_flash_dev;
 const struct hal_flash *
 hal_bsp_flash_dev(uint8_t id)
 {
@@ -114,7 +138,7 @@ hal_bsp_flash_dev(uint8_t id)
     if (id != 0) {
         return NULL;
     }
-    return &stm32f4_flash_dev;
+    return &stm32_flash_dev;
 }
 
 const struct hal_bsp_mem_dump *

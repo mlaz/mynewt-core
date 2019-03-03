@@ -55,6 +55,7 @@ split-nrf52dk.ld
 rb-nano2_no_boot.ld
 split-rb-nano2.ld
 nrf52.ld
+nrf52_ram_resident.ld
 ada_feather_nrf52_no_boot.ld
 split_ada_feather_nrf52.ld
 split-microbit.ld
@@ -114,6 +115,7 @@ vbluno52_no_boot.ld
 stm32_driver_mod_i2c_v1.c
 stm32_driver_mod_i2c_v2.c
 stm32_driver_mod_spi.c
+stm32_driver_mod_timer.c
 
 # STM32CubeF4  - BSD License.
 stm32f4xx_hal_conf.h
@@ -215,6 +217,7 @@ cmsis_nvic.h
 HAL_CM0.s
 HAL_CM3.s
 HAL_CM4.s
+HAL_CM33.s
 SVC_Table.s
 arm_common_tables.h
 arm_const_structs.h
@@ -347,6 +350,12 @@ startup_stm32l152xc.s
 # NUCLEO-F767 BSP - BSD License
 startup_stm32f767xx.s
 
+# NUCLEO-F413ZH BSP - BSD License
+nucleo-f413zh
+
+# NUCLEO-L467rg BSP - BSD License
+nucleo-l476rg
+
 # Microchip PIC32 SDK - BSD License
 p32mz2048efg100.h
 pic32_init_cache.S
@@ -400,6 +409,8 @@ docs
 # nrfX - BSD License
 nrfx
 nrfx_glue.h
+nrf52xxx
+nrf52xxx-compat
 
 # cmsis-core - Apache License
 cmsis-core
@@ -424,3 +435,16 @@ olimex-p103
 # puckjs - BSD License
 puckjs_no_boot.ld
 split_puckjs.ld
+
+# STM32L0xx SDK - BSD License
+stm32l0xx
+
+# STM32L4xx SDK - BSD License
+stm32l4xx
+
+# Fanstel EVBT840 BSP linker scripts - BSD License
+fanstel-ev-bt840_no_boot.ld
+split-fanstel-ev-bt840.ld
+
+# B-L072Z-LRWAN1 BSP - BSD License
+b-l072z-lrwan1

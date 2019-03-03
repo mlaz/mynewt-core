@@ -16,8 +16,6 @@
 # under the License.
 #
 
-# Package: hw/mcu/stm32f4xx
-
 syscfg.defs:
     MCU_FLASH_MIN_WRITE_SIZE:
         description: >
@@ -28,6 +26,26 @@ syscfg.defs:
     MCU_STM32F4:
         description: MCUs are of STM32F4xx family
         value: 1
+
+    STM32_HAL_SPI_HAS_FIFO:
+        description: This MCU has a SPI without FIFO
+        value: 0
+
+    STM32_HAL_I2C_HAS_CLOCKSPEED:
+        description: This MCU's I2C has a clock speed register
+        value: 1
+
+    STM32_HAL_UART_HAS_SR:
+        description: This MCU's UART uses SR register for status.
+        value: 1
+
+    MCU_FLASH_ERASED_VAL:
+        description: Value read from erased flash.
+        value: 0xff
+
+    STM32_FLASH_IS_LINEAR:
+        description: This MCU's Flash has one single sector size.
+        value: 0
 
     I2C_0:
         description: 'I2C (TWI) interface 0'

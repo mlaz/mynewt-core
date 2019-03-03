@@ -189,6 +189,20 @@ int conf_register(struct conf_handler *cf);
 int conf_load(void);
 
 /**
+ * @brief Loads the configuration if it hasn't been loaded since reboot.
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int conf_ensure_loaded(void);
+
+/**
+ * Config setting comes as a result of conf_load().
+ *
+ * @return 1 if yes, 0 if not.
+ */
+int conf_set_from_storage(void);
+
+/**
  * Save currently running configuration. All configuration which is different
  * from currently persisted values will be saved.
  *
@@ -215,12 +229,6 @@ int conf_save_tree(char *name);
  * @return 0 on success, non-zero on failure.
  */
 int conf_save_one(const char *name, char *var);
-
-/*
-  XXXX for later
-  int conf_save_lib(char *name);
-  int conf_save_var(char *name, char *var);
-*/
 
 /**
  * Set configuration item identified by @p name to be value @p val_str.
@@ -250,6 +258,21 @@ int conf_set_value(char *name, char *val_str);
  * @return pointer to value on success, NULL on failure.
  */
 char *conf_get_value(char *name, char *buf, int buf_len);
+
+/**
+ * Get stored value of configuration item identified by @p name.
+ * This traverses the configuration area(s), and copies the value
+ * of the latest value.
+ *
+ * Value is copied to @p buf, the maximum number of bytes it will copy is
+ * limited by @p buf_len.
+ *
+ * @param name Name/key of the configuration item.
+ * @param val_str Value of the configuration item.
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int conf_get_stored_value(char *name, char *buf, int buf_len);
 
 /**
  * Call commit for all configuration handler. This should apply all
@@ -321,15 +344,6 @@ char *conf_str_from_bytes(void *vp, int vp_len, char *buf, int buf_len);
  */
 #define CONF_VALUE_SET(str, type, val)                                  \
     conf_value_from_str((str), (type), &(val), sizeof(val))
-
-/*
- * Config storage
- */
-struct conf_store_itf;
-struct conf_store {
-    SLIST_ENTRY(conf_store) cs_next;
-    const struct conf_store_itf *cs_itf;
-};
 
 #ifdef __cplusplus
 }

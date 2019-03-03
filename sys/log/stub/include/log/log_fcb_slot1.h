@@ -25,13 +25,13 @@
 #if MYNEWT_VAL(LOG_FCB_SLOT1)
 
 #include "log/log.h"
-#include "fcb/fcb.h"
-#include "cbmem/cbmem.h"
+struct fcb_log;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct cbmem;
 typedef int (* log_fcb_slot1_reinit_fcb_fn) (struct fcb_log *arg);
 
 struct log_fcb_slot1 {

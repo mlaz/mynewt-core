@@ -172,6 +172,13 @@ err:
     return (rc);
 }
 
+int
+hal_spi_init_hw(uint8_t spi_num, uint8_t spi_type,
+                const struct hal_spi_hw_settings *cfg)
+{
+    return hal_spi_init(spi_num, NULL, spi_type);
+}
+
 /**
  * Sets the txrx callback (executed at interrupt context) when the
  * buffer is transferred by the master or the slave using the non-blocking API.
@@ -247,7 +254,7 @@ hal_spi_config(int spi_num, struct hal_spi_settings *settings)
     if (settings->data_order == HAL_SPI_LSB_FIRST) {
         fmt |= SPI_FMT_ENDIAN(1);
     }
-    div = get_cpu_freq() / (2 * settings->baudrate);
+    div = get_cpu_freq() / (2 * settings->baudrate * 1000);
     if (div) {
         div--;
     }
@@ -359,15 +366,11 @@ hal_spi_txrx(int spi_num, void *txbuf, void *rxbuf, int len)
         rc = SYS_EINVAL;
         goto err;
     }
-    while (_REG32(spi->spi_base, SPI_REG_TXFIFO) & SPI_TXFIFO_FULL) {
-        if (_REG32(spi->spi_base, SPI_REG_RXFIFO)) {
-        }
-    }
     while (!(_REG32(spi->spi_base, SPI_REG_RXFIFO) & SPI_RXFIFO_EMPTY)) {
     }
 
     while (received < len) {
-        if (sent < len &&
+        if (sent < len && (sent - received) < FE310_SPI_FIFO_LENGHT &&
             !(_REG32(spi->spi_base, SPI_REG_TXFIFO) & SPI_TXFIFO_FULL)) {
             _REG32(spi->spi_base, SPI_REG_TXFIFO) = ((uint8_t *)txbuf)[sent++];
         }

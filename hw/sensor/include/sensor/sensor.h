@@ -23,6 +23,10 @@
 #include <string.h>
 #include "os/mynewt.h"
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+#include "bus/drivers/i2c_common.h"
+#include "bus/drivers/spi_common.h"
+#endif
 #if MYNEWT_VAL(SENSOR_OIC)
 #include "oic/oc_ri.h"
 #endif
@@ -30,6 +34,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**  
+ * @defgroup SensorAPI 
+ * @{
+ */
 
 /**
  * Package init function. Remove when we have post-kernel init stages.
@@ -39,10 +48,6 @@ void sensor_pkg_init(void);
 
 /* Forward declare sensor structure defined below. */
 struct sensor;
-
-/**
- * @{ Sensor API
- */
 
 typedef enum {
  /* No sensor type, used for queries */
@@ -111,6 +116,26 @@ typedef enum {
     SENSOR_EVENT_TYPE_WAKEUP         = (1 << 4),
     /* Sleep Event */
     SENSOR_EVENT_TYPE_SLEEP          = (1 << 5),
+    /* Orientation Change Event */
+    SENSOR_EVENT_TYPE_ORIENT_CHANGE  = (1 << 6),
+    /* Orientation Change Event in the X direction */
+    SENSOR_EVENT_TYPE_ORIENT_X_CHANGE  = (1 << 7),
+    /* Orientation Change Event in the Y direction */
+    SENSOR_EVENT_TYPE_ORIENT_Y_CHANGE  = (1 << 8),
+    /* Orientation Change Event in the Z direction */
+    SENSOR_EVENT_TYPE_ORIENT_Z_CHANGE  = (1 << 9),
+    /* Orientation Change Event in the X L direction */
+    SENSOR_EVENT_TYPE_ORIENT_X_L_CHANGE  = (1 << 10),
+    /* Orientation Change Event in the Y L direction */
+    SENSOR_EVENT_TYPE_ORIENT_Y_L_CHANGE  = (1 << 11),
+    /* Orientation Change Event in the Z L direction */
+    SENSOR_EVENT_TYPE_ORIENT_Z_L_CHANGE  = (1 << 12),
+    /* Orientation Change Event in the X H direction */
+    SENSOR_EVENT_TYPE_ORIENT_X_H_CHANGE  = (1 << 13),
+    /* Orientation Change Event in the Y H direction */
+    SENSOR_EVENT_TYPE_ORIENT_Y_H_CHANGE  = (1 << 14),
+    /* Orientation Change Event in the Z H direction */
+    SENSOR_EVENT_TYPE_ORIENT_Z_H_CHANGE  = (1 << 15),
 } sensor_event_type_t;
 
 
@@ -235,6 +260,17 @@ typedef int
  */
 typedef int
 (*sensor_notifier_func_t)(struct sensor *, void *, sensor_event_type_t);
+
+/**
+ * Callback for reporting a sensor read error.
+ *
+ * @param sensor The sensor for which a read failed.
+ * @param arg The optional argument registered with the callback.
+ * @param status Indicates the cause of the read failure.  Determined by the
+ *               underlying sensor driver.
+ */
+typedef void
+(*sensor_error_func_t)(struct sensor *sensor, void *arg, int status);
 
 /**
  *
@@ -474,6 +510,10 @@ struct sensor_int {
 
 struct sensor_itf {
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    /* Device configuration is stored in bus node */
+    struct os_dev *si_dev;
+#else
     /* Sensor interface type */
     uint8_t si_type;
 
@@ -485,6 +525,10 @@ struct sensor_itf {
 
     /* Sensor address */
     uint16_t si_addr;
+
+    /* Mutex for interface access */
+    struct os_mutex *si_lock;
+#endif
 
     /* Sensor interface low int pin */
     uint8_t si_low_pin;
@@ -567,6 +611,10 @@ struct sensor {
      */
     SLIST_HEAD(, sensor_listener) s_listener_list;
 
+    /* A callback that reports read errors for this sensor */
+    sensor_error_func_t s_err_fn;
+    void *s_err_arg;
+
     /* A list of notifiers that are registered to receive events from this
      * sensor
      */
@@ -580,10 +628,39 @@ struct sensor {
 };
 
 /**
+ * Read context for calling user function with argument
+ */
+struct sensor_read_ctx {
+    sensor_data_func_t user_func;
+    void *user_arg;
+};
+
+/**
+ * Lock access to the sensor_itf specified by si.  Blocks until lock acquired.
+ *
+ * @param si The sensor_itf to lock
+ * @param timeout The timeout
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int
+sensor_itf_lock(struct sensor_itf *si, os_time_t timeout);
+
+/**
+ * Unlock access to the sensor_itf specified by si.
+ *
+ * @param si The sensor_itf to unlock access to
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+void
+sensor_itf_unlock(struct sensor_itf *si);
+
+/**
  * Initialize a sensor
  *
  * @param sensor The sensor to initialize
- * @param The device to associate with this sensor.
+ * @param dev The device to associate with this sensor.
  *
  * @return 0 on success, non-zero error code on failure.
  */
@@ -601,9 +678,18 @@ int sensor_lock(struct sensor *sensor);
 /**
  * Unlock access to the sensor specified by sensor.
  *
- * @param The sensor to unlock access to.
+ * @param sensor The sensor to unlock access to.
  */
 void sensor_unlock(struct sensor *sensor);
+
+/**
+ * @} SensorAPI
+ */
+
+/**
+ * @defgroup SensorListenerAPI
+ * @{
+ */
 
 /**
  * Register a sensor listener. This allows a calling application to receive
@@ -628,8 +714,29 @@ int sensor_register_listener(struct sensor *sensor, struct sensor_listener *list
  *
  * @return 0 on success, non-zero error code on failure.
  */
-
 int sensor_unregister_listener(struct sensor *sensor, struct sensor_listener *listener);
+
+/**
+ * Register a sensor error callback.  The callback is executed when the sensor
+ * manager fails to read from the given sensor.
+ *
+ * @param sensor The sensor to register an error callback on.
+ * @param err_fn The function to execute when a read fails.
+ * @param arg Optional argument to pass to the callback.
+ *
+ * @return 0 on success, non-zero error code on failure.
+ */
+int sensor_register_err_func(struct sensor *sensor,
+        sensor_error_func_t err_fn, void *arg);
+
+/**
+ * @} SensorListenerAPI
+ */
+
+/**
+ * @defgroup SensorNotifierAPI
+ * @{
+ */
 
 /**
  * Register a sensor notifier. This allows a calling application to receive
@@ -640,6 +747,7 @@ int sensor_unregister_listener(struct sensor *sensor, struct sensor_listener *li
  *
  * @return 0 on success, non-zero error code on failure.
  */
+
 int sensor_register_notifier(struct sensor *sensor, struct sensor_notifier *notifier);
 
 /**
@@ -652,6 +760,15 @@ int sensor_register_notifier(struct sensor *sensor, struct sensor_notifier *noti
  * @return 0 on success, non-zero error code on failure.
  */
 int sensor_unregister_notifier(struct sensor *sensor, struct sensor_notifier *notifier);
+
+/**
+ * @} SensorNotifierAPI
+ */
+
+/**
+ * @defgroup SensorAPI
+ * @{
+ */
 
 /**
  * Read the data for sensor type "type," from the given sensor and
@@ -750,7 +867,13 @@ sensor_get_config(struct sensor *sensor, sensor_type_t type,
 }
 
 /**
- * @{ Sensor Manager API
+ *   @} SensorAPI
+ */
+
+
+/**
+ *   @defgroup SensorManagerAPI
+     @{
  */
 
 
@@ -836,7 +959,8 @@ struct sensor *sensor_mgr_find_next_bytype(sensor_type_t type, struct sensor *se
  *
  * @return 0 on success, non-zero error code on failure
  */
-struct sensor *sensor_mgr_find_next_bydevname(char *devname, struct sensor *prev_cursor);
+struct sensor *sensor_mgr_find_next_bydevname(const char *devname,
+                                              struct sensor *prev_cursor);
 
 /**
  * Check if sensor type matches
@@ -855,7 +979,7 @@ int sensor_mgr_match_bytype(struct sensor *sensor, void *);
  * @param poll_rate The poll rate in milli seconds
  */
 int
-sensor_set_poll_rate_ms(char *devname, uint32_t poll_rate);
+sensor_set_poll_rate_ms(const char *devname, uint32_t poll_rate);
 
 /**
  * Set the sensor poll rate multiple based on the device name, sensor type
@@ -864,7 +988,7 @@ sensor_set_poll_rate_ms(char *devname, uint32_t poll_rate);
  * @param stt The sensor type trait
  */
 int
-sensor_set_n_poll_rate(char *devname, struct sensor_type_traits *stt);
+sensor_set_n_poll_rate(const char *devname, struct sensor_type_traits *stt);
 
 /**
  * Transmit OIC trigger
@@ -911,7 +1035,7 @@ sensor_get_type_traits_bytype(sensor_type_t type, struct sensor *sensor);
  * @return NULL on failure, sensor struct on success
  */
 struct sensor *
-sensor_get_type_traits_byname(char *, struct sensor_type_traits **,
+sensor_get_type_traits_byname(const char *, struct sensor_type_traits **,
                               sensor_type_t);
 
 /**
@@ -923,7 +1047,7 @@ sensor_get_type_traits_byname(char *, struct sensor_type_traits **,
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_set_thresh(char *devname, struct sensor_type_traits *stt);
+sensor_set_thresh(const char *devname, struct sensor_type_traits *stt);
 
 /**
  * Clears the low threshold for a sensor
@@ -934,7 +1058,7 @@ sensor_set_thresh(char *devname, struct sensor_type_traits *stt);
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_clear_low_thresh(char *devname, sensor_type_t type);
+sensor_clear_low_thresh(const char *devname, sensor_type_t type);
 
 /**
  * Clears the high threshold for a sensor
@@ -945,7 +1069,7 @@ sensor_clear_low_thresh(char *devname, sensor_type_t type);
  * @return 0 on success, non-zero on failure
  */
 int
-sensor_clear_high_thresh(char *devname, sensor_type_t type);
+sensor_clear_high_thresh(const char *devname, sensor_type_t type);
 
 /**
  * Puts a notification event on the sensor manager evq
@@ -984,6 +1108,13 @@ sensor_mgr_put_read_evt(void *arg);
  */
 char*
 sensor_ftostr(float, char *, int);
+
+/**
+ * API to register sensor shell
+ */
+int
+sensor_shell_register(void);
+
 #endif
 
 #if MYNEWT_VAL(SENSOR_OIC)
@@ -995,14 +1126,9 @@ void sensor_oic_init(void);
 #endif
 
 /**
- * }@
+ *    @} SensorManagerAPI
  */
 
-
-
-/**
- * @}
- */
 
 #ifdef __cplusplus
 }

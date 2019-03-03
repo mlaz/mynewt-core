@@ -30,6 +30,7 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/asn1.h"
 #include "mbedtls/oid.h"
+#include "mbedtls/platform_util.h"
 
 #include <string.h>
 
@@ -58,14 +59,6 @@
 #include <stdlib.h>
 #define mbedtls_calloc    calloc
 #define mbedtls_free       free
-#endif
-
-#if defined(MBEDTLS_FS_IO) || \
-    defined(MBEDTLS_PKCS12_C) || defined(MBEDTLS_PKCS5_C)
-/* Implementation that should never be optimized out by the compiler */
-static void mbedtls_zeroize( void *v, size_t n ) {
-    volatile unsigned char *p = v; while( n-- ) *p++ = 0;
-}
 #endif
 
 #if defined(MBEDTLS_FS_IO)
@@ -105,7 +98,7 @@ int mbedtls_pk_load_file( const char *path, unsigned char **buf, size_t *n )
     {
         fclose( f );
 
-        mbedtls_zeroize( *buf, *n );
+        mbedtls_platform_zeroize( *buf, *n );
         mbedtls_free( *buf );
 
         return( MBEDTLS_ERR_PK_FILE_IO_ERROR );
@@ -140,7 +133,7 @@ int mbedtls_pk_parse_keyfile( mbedtls_pk_context *ctx,
         ret = mbedtls_pk_parse_key( ctx, buf, n,
                 (const unsigned char *) pwd, strlen( pwd ) );
 
-    mbedtls_zeroize( buf, n );
+    mbedtls_platform_zeroize( buf, n );
     mbedtls_free( buf );
 
     return( ret );
@@ -160,7 +153,7 @@ int mbedtls_pk_parse_public_keyfile( mbedtls_pk_context *ctx, const char *path )
 
     ret = mbedtls_pk_parse_public_key( ctx, buf, n );
 
-    mbedtls_zeroize( buf, n );
+    mbedtls_platform_zeroize( buf, n );
     mbedtls_free( buf );
 
     return( ret );
@@ -1268,7 +1261,6 @@ int mbedtls_pk_parse_key( mbedtls_pk_context *pk,
         return( ret );
 #endif /* MBEDTLS_PKCS12_C || MBEDTLS_PKCS5_C */
 #else
-    ((void) ret);
     ((void) pwd);
     ((void) pwdlen);
 #endif /* MBEDTLS_PEM_PARSE_C */
@@ -1295,7 +1287,7 @@ int mbedtls_pk_parse_key( mbedtls_pk_context *pk,
         ret = pk_parse_key_pkcs8_encrypted_der( pk, key_copy, keylen,
                                                 pwd, pwdlen );
 
-        mbedtls_zeroize( key_copy, keylen );
+        mbedtls_platform_zeroize( key_copy, keylen );
         mbedtls_free( key_copy );
     }
 
@@ -1303,6 +1295,7 @@ int mbedtls_pk_parse_key( mbedtls_pk_context *pk,
         return( 0 );
 
     mbedtls_pk_free( pk );
+    mbedtls_pk_init( pk );
 
     if( ret == MBEDTLS_ERR_PK_PASSWORD_MISMATCH )
     {
@@ -1314,38 +1307,41 @@ int mbedtls_pk_parse_key( mbedtls_pk_context *pk,
         return( 0 );
 
     mbedtls_pk_free( pk );
+    mbedtls_pk_init( pk );
 
 #if defined(MBEDTLS_RSA_C)
 
     pk_info = mbedtls_pk_info_from_type( MBEDTLS_PK_RSA );
-    if( ( ret = mbedtls_pk_setup( pk, pk_info ) ) != 0 ||
-        ( ret = pk_parse_key_pkcs1_der( mbedtls_pk_rsa( *pk ),
-                                        key, keylen ) ) != 0 )
-    {
-        mbedtls_pk_free( pk );
-    }
-    else
+    if( mbedtls_pk_setup( pk, pk_info ) == 0 &&
+        pk_parse_key_pkcs1_der( mbedtls_pk_rsa( *pk ), key, keylen ) == 0 )
     {
         return( 0 );
     }
 
+    mbedtls_pk_free( pk );
+    mbedtls_pk_init( pk );
 #endif /* MBEDTLS_RSA_C */
 
 #if defined(MBEDTLS_ECP_C)
-
     pk_info = mbedtls_pk_info_from_type( MBEDTLS_PK_ECKEY );
-    if( ( ret = mbedtls_pk_setup( pk, pk_info ) ) != 0 ||
-        ( ret = pk_parse_key_sec1_der( mbedtls_pk_ec( *pk ),
-                                       key, keylen ) ) != 0 )
-    {
-        mbedtls_pk_free( pk );
-    }
-    else
+    if( mbedtls_pk_setup( pk, pk_info ) == 0 &&
+        pk_parse_key_sec1_der( mbedtls_pk_ec( *pk ),
+                               key, keylen ) == 0 )
     {
         return( 0 );
     }
-
+    mbedtls_pk_free( pk );
 #endif /* MBEDTLS_ECP_C */
+
+    /* If MBEDTLS_RSA_C is defined but MBEDTLS_ECP_C isn't,
+     * it is ok to leave the PK context initialized but not
+     * freed: It is the caller's responsibility to call pk_init()
+     * before calling this function, and to call pk_free()
+     * when it fails. If MBEDTLS_ECP_C is defined but MBEDTLS_RSA_C
+     * isn't, this leads to mbedtls_pk_free() being called
+     * twice, once here and once by the caller, but this is
+     * also ok and in line with the mbedtls_pk_free() calls
+     * on failed PEM parsing attempts. */
 
     return( MBEDTLS_ERR_PK_KEY_INVALID_FORMAT );
 }

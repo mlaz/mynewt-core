@@ -16,9 +16,11 @@
 # under the License.
 #
 
-# Package: boot/bootutil
-
 syscfg.defs:
     TESTUTIL_SYSTEM_ASSERT:
         description: 'Crash the system on test failure'
         value: '0'
+    TESTUTIL_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for testutil functionality.
+        value: 1

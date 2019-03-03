@@ -31,6 +31,7 @@
 #include "mcu/cmsis_nvic.h"
 #include "nrf51_bitfields.h"
 #include "hal/hal_spi.h"
+#include "hal/hal_i2c.h"
 
 #if MYNEWT_VAL(UART_0)
 #include "uart/uart.h"
@@ -70,6 +71,22 @@ static const struct nrf51_hal_spi_cfg os_bsp_spi1s_cfg = {
     .mosi_pin     = MYNEWT_VAL(SPI_1_SLAVE_PIN_MOSI),
     .miso_pin     = MYNEWT_VAL(SPI_1_SLAVE_PIN_MISO),
     .ss_pin       = MYNEWT_VAL(SPI_1_SLAVE_PIN_SS),
+};
+#endif
+
+#if MYNEWT_VAL(I2C_0)
+static const struct nrf51_hal_i2c_cfg hal_i2c_cfg = {
+    .scl_pin = MYNEWT_VAL(I2C_0_PIN_SCL),
+    .sda_pin = MYNEWT_VAL(I2C_0_PIN_SDA),
+    .i2c_frequency = MYNEWT_VAL(I2C_0_FREQ_KHZ),
+};
+#endif
+
+#if MYNEWT_VAL(I2C_1)
+static const struct nrf51_hal_i2c_cfg hal_i2c1_cfg = {
+    .scl_pin = MYNEWT_VAL(I2C_1_PIN_SCL),
+    .sda_pin = MYNEWT_VAL(I2C_1_PIN_SDA),
+    .i2c_frequency = MYNEWT_VAL(I2C_1_FREQ_KHZ),
 };
 #endif
 
@@ -196,61 +213,14 @@ hal_bsp_init(void)
     rc = hal_spi_init(1, (void *)&os_bsp_spi1s_cfg, HAL_SPI_TYPE_SLAVE);
     assert(rc == 0);
 #endif
-}
 
-extern void timer_handler(void);
-static void
-rtc0_timer_handler(void)
-{
-    if (NRF_RTC0->EVENTS_TICK) {
-        NRF_RTC0->EVENTS_TICK = 0;
-        timer_handler();
-    }
-}
+#if MYNEWT_VAL(I2C_0)
+    rc = hal_i2c_init(0, (void *)&hal_i2c_cfg);
+    assert(rc == 0);
+#endif
 
-void
-os_bsp_systick_init(uint32_t os_ticks_per_sec, int prio)
-{
-    uint32_t ctx;
-    uint32_t mask;
-    uint32_t pre_scaler;
-
-    /* Turn on the LFCLK */
-    NRF_CLOCK->XTALFREQ = CLOCK_XTALFREQ_XTALFREQ_16MHz;
-    NRF_CLOCK->TASKS_LFCLKSTOP = 1;
-    NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
-    NRF_CLOCK->LFCLKSRC = CLOCK_LFCLKSRC_SRC_Xtal;
-    NRF_CLOCK->TASKS_LFCLKSTART = 1;
-
-    /* Wait here till started! */
-    mask = CLOCK_LFCLKSTAT_STATE_Msk | CLOCK_LFCLKSTAT_SRC_Xtal;
-    while (1) {
-        if (NRF_CLOCK->EVENTS_LFCLKSTARTED) {
-            if ((NRF_CLOCK->LFCLKSTAT & mask) == mask) {
-                break;
-            }
-        }
-    }
-
-    /* Is this exact frequency obtainable? */
-    pre_scaler = (32768 / os_ticks_per_sec) - 1;
-
-    /* disable interrupts */
-    __HAL_DISABLE_INTERRUPTS(ctx);
-
-    NRF_RTC0->TASKS_STOP = 1;
-    NRF_RTC0->EVENTS_TICK = 0;
-    NRF_RTC0->PRESCALER = pre_scaler;
-    NRF_RTC0->INTENCLR = 0xffffffff;
-    NRF_RTC0->TASKS_CLEAR = 1;
-
-    /* Set isr in vector table and enable interrupt */
-    NVIC_SetPriority(RTC0_IRQn, prio);
-    NVIC_SetVector(RTC0_IRQn, (uint32_t)rtc0_timer_handler);
-    NVIC_EnableIRQ(RTC0_IRQn);
-
-    NRF_RTC0->INTENSET = RTC_INTENSET_TICK_Msk;
-    NRF_RTC0->TASKS_START = 1;
-
-    __HAL_ENABLE_INTERRUPTS(ctx);
+#if MYNEWT_VAL(I2C_1)
+    rc = hal_i2c_init(1, (void *)&hal_i2c1_cfg);
+    assert(rc == 0);
+#endif
 }

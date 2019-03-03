@@ -23,13 +23,13 @@ pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
 
 pkg.deps:
-    - kernel/os
-    - hw/hal
-    - sys/shell
-    - util/parse
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/hw/hal"
+    - "@apache-mynewt-core/sys/shell"
+    - "@apache-mynewt-core/util/parse"
 
 pkg.req_apis:
     - console
 
 pkg.init:
-    i2c_scan_init: 500
+    i2c_scan_init: 'MYNEWT_VAL(I2C_SCAN_SYSINIT_STAGE)'

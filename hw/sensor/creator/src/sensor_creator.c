@@ -37,6 +37,9 @@
 #if MYNEWT_VAL(TSL2561_OFB)
 #include <tsl2561/tsl2561.h>
 #endif
+#if MYNEWT_VAL(TSL2591_OFB)
+#include <tsl2591/tsl2591.h>
+#endif
 #if MYNEWT_VAL(TCS34725_OFB)
 #include <tcs34725/tcs34725.h>
 #endif
@@ -73,9 +76,22 @@
 #include <lps33hw/lps33hw.h>
 #endif
 
+#if MYNEWT_VAL(LPS33THW_OFB)
+#include <lps33thw/lps33thw.h>
+#endif
+
 #if MYNEWT_VAL(LIS2DW12_OFB)
 #include <lis2dw12/lis2dw12.h>
 #endif
+
+#if MYNEWT_VAL(LIS2DS12_OFB)
+#include <lis2ds12/lis2ds12.h>
+#endif
+
+#if MYNEWT_VAL(BME680_OFB)
+#include <bme680/bme680.h>
+#endif
+
 
 /* Driver definitions */
 #if MYNEWT_VAL(DRV2605_OFB)
@@ -96,6 +112,10 @@ static struct bno055 bno055;
 
 #if MYNEWT_VAL(TSL2561_OFB)
 static struct tsl2561 tsl2561;
+#endif
+
+#if MYNEWT_VAL(TSL2591_OFB)
+static struct tsl2591 tsl2591;
 #endif
 
 #if MYNEWT_VAL(TCS34725_OFB)
@@ -134,8 +154,20 @@ static struct adxl345 adxl345;
 static struct lps33hw lps33hw;
 #endif
 
+#if MYNEWT_VAL(LPS33THW_OFB)
+static struct lps33thw lps33thw;
+#endif
+
 #if MYNEWT_VAL(LIS2DW12_OFB)
 static struct lis2dw12 lis2dw12;
+#endif
+
+#if MYNEWT_VAL(LIS2DS12_OFB)
+static struct lis2ds12 lis2ds12;
+#endif
+
+#if MYNEWT_VAL(BME680_OFB)
+static struct bme680 bme680;
 #endif
 
 /**
@@ -216,6 +248,15 @@ static struct sensor_itf i2c_0_itf_tsl = {
 };
 #endif
 
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(TSL2591_OFB)
+static struct sensor_itf i2c_0_itf_tsl = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num  = 0,
+    /*  I2C address for the TSL2591 (0x29) */
+    .si_addr = 0x29
+};
+#endif
+
 #if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(TCS34725_OFB)
 static struct sensor_itf i2c_0_itf_tcs = {
     .si_type = SENSOR_ITF_I2C,
@@ -226,7 +267,7 @@ static struct sensor_itf i2c_0_itf_tcs = {
 #endif
 
 #if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(MS5837_OFB)
-static struct sensor_itf i2c_0_itf_ms = {
+static struct sensor_itf i2c_0_itf_ms37 = {
     .si_type = SENSOR_ITF_I2C,
     .si_num  = 0,
     /* HW I2C address for the MS5837 */
@@ -235,7 +276,7 @@ static struct sensor_itf i2c_0_itf_ms = {
 #endif
 
 #if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(MS5840_OFB)
-static struct sensor_itf i2c_0_itf_ms = {
+static struct sensor_itf i2c_0_itf_ms40 = {
     .si_type = SENSOR_ITF_I2C,
     .si_num  = 0,
     /* HW I2C address for the MS5840 */
@@ -291,7 +332,7 @@ static struct sensor_itf spi2c_0_itf_bma2xx = {
 static struct sensor_itf i2c_0_itf_adxl = {
     .si_type = SENSOR_ITF_I2C,
     .si_num  = 0,
-    .si_addr = 0x1D,
+    .si_addr = MYNEWT_VAL(ADXL345_ITF_ADDR),
     .si_ints = {
        { MYNEWT_VAL(ADXL345_INT_PIN_HOST), MYNEWT_VAL(ADXL345_INT_PIN_DEVICE),
          MYNEWT_VAL(ADXL345_INT_CFG_ACTIVE)}}
@@ -306,6 +347,14 @@ static struct sensor_itf i2c_0_itf_lps = {
 };
 #endif
 
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(LPS33THW_OFB)
+static struct sensor_itf i2c_0_itf_lpst = {
+    .si_type = MYNEWT_VAL(LPS33THW_SHELL_ITF_TYPE),
+    .si_num  = MYNEWT_VAL(LPS33THW_SHELL_ITF_NUM),
+    .si_addr = MYNEWT_VAL(LPS33THW_SHELL_ITF_ADDR)
+};
+#endif
+
 #if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(LIS2DW12_OFB)
 static struct sensor_itf i2c_0_itf_lis2dw12 = {
     .si_type = SENSOR_ITF_I2C,
@@ -314,6 +363,25 @@ static struct sensor_itf i2c_0_itf_lis2dw12 = {
     .si_ints = {
         { MYNEWT_VAL(LIS2DW12_INT1_PIN_HOST), MYNEWT_VAL(LIS2DW12_INT1_PIN_DEVICE),
           MYNEWT_VAL(LIS2DW12_INT1_CFG_ACTIVE)}}
+};
+#endif
+
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(LIS2DS12_OFB)
+static struct sensor_itf i2c_0_itf_lis2ds12 = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num  = 0,
+    .si_addr = 0x1D,
+    .si_ints = {
+        { MYNEWT_VAL(LIS2DS12_INT1_PIN_HOST), MYNEWT_VAL(LIS2DS12_INT1_PIN_DEVICE),
+          MYNEWT_VAL(LIS2DS12_INT1_CFG_ACTIVE)}}
+};
+#endif
+
+#if MYNEWT_VAL(I2C_0) && MYNEWT_VAL(BME680_OFB)
+static struct sensor_itf i2c_0_itf_bme680 = {
+    .si_type = SENSOR_ITF_I2C,
+    .si_num = 0,
+    .si_addr = 0x76,
 };
 #endif
 
@@ -506,6 +574,34 @@ config_tsl2561_sensor(void)
     tslcfg.mask = SENSOR_TYPE_LIGHT;
 
     rc = tsl2561_config((struct tsl2561 *)dev, &tslcfg);
+
+    os_dev_close(dev);
+    return rc;
+}
+#endif
+
+/**
+ * TSL2591 Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(TSL2591_OFB)
+static int
+config_tsl2591_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct tsl2591_cfg tslcfg;
+
+    dev = (struct os_dev *) os_dev_open("tsl2591_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    /* Gain set to 1X and Inetgration time set to 100ms */
+    tslcfg.gain = TSL2591_LIGHT_GAIN_LOW;
+    tslcfg.integration_time = TSL2591_LIGHT_ITIME_100MS;
+    tslcfg.mask = SENSOR_TYPE_LIGHT;
+
+    rc = tsl2591_config((struct tsl2591 *)dev, &tslcfg);
 
     os_dev_close(dev);
     return rc;
@@ -730,6 +826,8 @@ config_adxl345_sensor(void)
 
     rc = adxl345_config((struct adxl345 *) dev, &cfg);
     assert(rc == 0);
+    return rc;
+}
 #endif
 
 /*
@@ -766,6 +864,40 @@ config_lps33hw_sensor(void)
 }
 #endif
 
+/*
+ * LPS3T3HW Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(LPS33THW_OFB)
+static int
+config_lps33thw_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct lps33thw_cfg cfg;
+
+    cfg.mask = SENSOR_TYPE_PRESSURE | SENSOR_TYPE_TEMPERATURE;
+    cfg.data_rate = LPS33THW_1HZ;
+    cfg.lpf = LPS33THW_LPF_DISABLED;
+    cfg.int_cfg.pin = 0;
+    cfg.int_cfg.data_rdy = 0;
+    cfg.int_cfg.pressure_low = 0;
+    cfg.int_cfg.pressure_high = 0;
+    cfg.int_cfg.active_low = 0;
+    cfg.int_cfg.open_drain = 0;
+    cfg.int_cfg.latched = 0;
+
+    dev = (struct os_dev *) os_dev_open("lps33thw_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    rc = lps33thw_config((struct lps33thw *) dev, &cfg);
+
+    os_dev_close(dev);
+    return rc;
+}
+#endif
+
 /**
  * LIS2DW12 Sensor default configuration used by the creator package
  *
@@ -777,12 +909,13 @@ config_lis2dw12_sensor(void)
 {
     int rc;
     struct os_dev *dev;
-    struct lis2dw12_cfg cfg;
+    struct lis2dw12_cfg cfg = {0};
 
     dev = (struct os_dev *) os_dev_open("lis2dw12_0", OS_TIMEOUT_NEVER, NULL);
     assert(dev != NULL);
 
-    cfg.rate = LIS2DW12_DATA_RATE_200HZ;
+    /* Valid Tap ODRs are 400 Hz, 800 Hz and 1600 Hz  AN5038 5.6.3 */
+    cfg.rate = LIS2DW12_DATA_RATE_400HZ;
     cfg.fs = LIS2DW12_FS_2G;
 
     cfg.offset_x = 0;
@@ -793,24 +926,24 @@ config_lis2dw12_sensor(void)
 
     cfg.filter_bw = LIS2DW12_FILTER_BW_ODR_DIV_2;
     cfg.high_pass = 0;
-    
+
     cfg.tap.en_x = 1;
     cfg.tap.en_y = 1;
     cfg.tap.en_z = 1;
     cfg.tap.en_4d = 0;
     cfg.tap.ths_6d = LIS2DW12_6D_THS_80_DEG;
     cfg.tap.tap_priority = LIS2DW12_TAP_PRIOR_XYZ;
-    cfg.tap.tap_ths_x = 0x3;
-    cfg.tap.tap_ths_y = 0x3;
-    cfg.tap.tap_ths_z = 0x3;
-    cfg.tap.latency = 8; /* 640ms */
-    cfg.tap.quiet = 0; /* 10ms */
-    cfg.tap.shock = 3; /* 120ms */
+    cfg.tap.tap_ths_x = 0x3; /* 1875mg = (3 * FS / 32) */
+    cfg.tap.tap_ths_y = 0x3; /* 1875mg = (3 * FS / 32) */
+    cfg.tap.tap_ths_z = 0x3; /* 1875mg = (3 * FS / 32) */
+    cfg.tap.latency = 8; /* 640ms (= 8 * 32 / ODR) */
+    cfg.tap.quiet = 0; /* 5 ms  (= 2 / ODR */
+    cfg.tap.shock = 3; /* 60 ms (= 3 * 8 / ODR) */
 
     cfg.double_tap_event_enable = 0;
 
-    cfg.freefall_dur = 6;
-    cfg.freefall_ths = 3; /* ~312mg */
+    cfg.freefall_dur = 6; /* 15ms (= 6/ODR) */
+    cfg.freefall_ths = 3; /* ~312mg (= 31.25 mg * 10) */
 
     cfg.int1_pin_cfg = 0;
     cfg.int2_pin_cfg = 0;
@@ -820,26 +953,92 @@ config_lis2dw12_sensor(void)
     cfg.int_latched = 0;
     cfg.int_active_low = 0;
     cfg.slp_mode = 0;
-    cfg.self_test_mode = LIS2DW12_ST_MODE_DISABLE;
 
     cfg.fifo_mode = LIS2DW12_FIFO_M_BYPASS;
     cfg.fifo_threshold = 32;
 
-    cfg.wake_up_ths = 0;
-    cfg.wake_up_dur = 0;
-    cfg.sleep_duration = 0;
+    cfg.wake_up_ths = 0; /* 0 mg (= 0 * FS / 64) */
+    cfg.wake_up_dur = 0; /* 0 ms (= 0 * 1 / ODR) */
+    cfg.sleep_duration = 0; /* 0 ms (= 0 * 512 / ODR) */
 
     cfg.stationary_detection_enable = 0;
 
     cfg.power_mode = LIS2DW12_PM_HIGH_PERF;
     cfg.inactivity_sleep_enable = 0;
     cfg.low_noise_enable = 1;
-    
+
     cfg.read_mode.mode = LIS2DW12_READ_M_POLL;
 
     cfg.mask = SENSOR_TYPE_ACCELEROMETER;
 
     rc = lis2dw12_config((struct lis2dw12 *) dev, &cfg);
+    assert(rc == 0);
+
+    os_dev_close(dev);
+    return rc;
+}
+#endif
+
+/**
+ * LIS2DS12 Sensor default configuration used by the creator package
+ *
+ * @return 0 on success, non-zero on failure
+ */
+#if MYNEWT_VAL(LIS2DS12_OFB)
+static int
+config_lis2ds12_sensor(void)
+{
+    int rc;
+    struct os_dev *dev;
+    struct lis2ds12_cfg cfg;
+
+    dev = (struct os_dev *) os_dev_open("lis2ds12_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    /* single and double tap is only meaningful >= LIS2DS12_DATA_RATE_HR_14BIT_400HZ  AN4748 5.6 */
+    cfg.rate = LIS2DS12_DATA_RATE_HR_14BIT_400HZ;
+    cfg.fs = LIS2DS12_FS_2G;
+
+    cfg.high_pass = 0;
+
+    cfg.tap.en_4d = 0;
+    cfg.tap.ths_6d = LIS2DS12_6D_THS_80_DEG;
+
+    cfg.tap.en_x = 1;
+    cfg.tap.en_y = 1;
+    cfg.tap.en_z = 1;
+    cfg.tap.tap_ths = 0xC; /* 750mg = (12 * FS / 32) */
+    cfg.tap.latency = 7; /* 560ms (= 7 * 32 / ODR) */
+    cfg.tap.quiet = 2; /* 20 ms (= 2 * 4 / ODR) */
+    cfg.tap.shock = 2; /* 40 ms (= 2 * 8 / ODR) */
+
+    cfg.double_tap_event_enable = 0;
+
+    cfg.freefall_dur = 6; /* 15ms (= 6/ODR) */
+    cfg.freefall_ths = 3; /* ~312mg (= 31.25 mg * 10) */
+
+    cfg.int1_pin_cfg = 0;
+    cfg.int2_pin_cfg = 0;
+    cfg.map_int2_to_int1 = 0;
+
+    cfg.int_pp_od = 0;
+    cfg.int_latched = 0;
+    cfg.int_active_low = 0;
+
+    cfg.fifo_mode = LIS2DS12_FIFO_M_BYPASS;
+    cfg.fifo_threshold = 32;
+
+    cfg.wake_up_ths = 63;  /* 1.96875 mg (= 63 * FS / 64) */
+    cfg.wake_up_dur = 3; /* 7.5 ms (= 3 * 1 / ODR) */
+    cfg.sleep_duration = 0; /* 0 ms (= 0 * 512 / ODR) */
+
+    cfg.inactivity_sleep_enable = 0;
+
+    cfg.read_mode.mode = LIS2DS12_READ_M_POLL;
+
+    cfg.mask = SENSOR_TYPE_ACCELEROMETER;
+
+    rc = lis2ds12_config((struct lis2ds12 *) dev, &cfg);
     assert(rc == 0);
 
     os_dev_close(dev);
@@ -884,6 +1083,41 @@ config_bma2xx_sensor(void)
     cfg.sensor_mask = SENSOR_TYPE_ACCELEROMETER;
 
     rc = bma2xx_config((struct bma2xx *)dev, &cfg);
+    assert(rc == 0);
+
+    os_dev_close(dev);
+
+    return 0;
+}
+#endif
+
+#if MYNEWT_VAL(BME680_OFB)
+int
+config_bme680_sensor(void)
+{
+    struct os_dev * dev;
+    struct bme680_cfg cfg;
+    int rc;
+
+    dev = os_dev_open("bme680_0", OS_TIMEOUT_NEVER, NULL);
+    assert(dev != NULL);
+
+    cfg.amb_temp = 25;
+    cfg.tph_sett.os_hum = BME680_OS_2X;
+    cfg.tph_sett.os_pres = BME680_OS_4X;
+    cfg.tph_sett.os_temp = BME680_OS_8X;
+    cfg.tph_sett.filter = BME680_FILTER_SIZE_3;
+
+    cfg.gas_sett.run_gas = BME680_ENABLE_GAS_MEAS;
+    cfg.gas_sett.heatr_temp = 320;
+    cfg.gas_sett.heatr_dur = 150;
+
+    cfg.power_mode = BME680_FORCED_MODE;
+
+    cfg.required_settings = BME680_OST_SEL | BME680_OSP_SEL | BME680_OSH_SEL | BME680_FILTER_SEL | BME680_GAS_SENSOR_SEL;
+    cfg.s_mask = SENSOR_TYPE_ALL;
+
+    rc = bme680_config((struct bme680 *)dev, &cfg);
     assert(rc == 0);
 
     os_dev_close(dev);
@@ -953,6 +1187,15 @@ sensor_dev_create(void)
     assert(rc == 0);
 #endif
 
+#if MYNEWT_VAL(TSL2591_OFB)
+    rc = os_dev_create((struct os_dev *) &tsl2591, "tsl2591_0",
+      OS_DEV_INIT_PRIMARY, 0, tsl2591_init, (void *)&i2c_0_itf_tsl);
+    assert(rc == 0);
+
+    rc = config_tsl2591_sensor();
+    assert(rc == 0);
+#endif
+
 #if MYNEWT_VAL(TCS34725_OFB)
     rc = os_dev_create((struct os_dev *) &tcs34725, "tcs34725_0",
       OS_DEV_INIT_PRIMARY, 0, tcs34725_init, (void *)&i2c_0_itf_tcs);
@@ -973,7 +1216,7 @@ sensor_dev_create(void)
 
 #if MYNEWT_VAL(MS5837_OFB)
     rc = os_dev_create((struct os_dev *) &ms5837, "ms5837_0",
-      OS_DEV_INIT_PRIMARY, 0, ms5837_init, (void *)&i2c_0_itf_ms);
+      OS_DEV_INIT_PRIMARY, 0, ms5837_init, (void *)&i2c_0_itf_ms37);
     assert(rc == 0);
 
     rc = config_ms5837_sensor();
@@ -982,7 +1225,7 @@ sensor_dev_create(void)
 
 #if MYNEWT_VAL(MS5840_OFB)
     rc = os_dev_create((struct os_dev *) &ms5840, "ms5840_0",
-      OS_DEV_INIT_PRIMARY, 0, ms5840_init, (void *)&i2c_0_itf_ms);
+      OS_DEV_INIT_PRIMARY, 0, ms5840_init, (void *)&i2c_0_itf_ms40);
     assert(rc == 0);
 
     rc = config_ms5840_sensor();
@@ -1008,12 +1251,12 @@ sensor_dev_create(void)
 #endif
 
 #if MYNEWT_VAL(BMA2XX_OFB)
-rc = os_dev_create((struct os_dev *)&bma2xx, "bma2xx_0",
-  OS_DEV_INIT_PRIMARY, 0, bma2xx_init, &spi2c_0_itf_bma2xx);
-assert(rc == 0);
+    rc = os_dev_create((struct os_dev *)&bma2xx, "bma2xx_0",
+      OS_DEV_INIT_PRIMARY, 0, bma2xx_init, &spi2c_0_itf_bma2xx);
+    assert(rc == 0);
 
-rc = config_bma2xx_sensor();
-assert(rc == 0);
+    rc = config_bma2xx_sensor();
+    assert(rc == 0);
 #endif
 
 #if MYNEWT_VAL(ADXL345_OFB)
@@ -1034,6 +1277,15 @@ assert(rc == 0);
     assert(rc == 0);
 #endif
 
+#if MYNEWT_VAL(LPS33THW_OFB)
+    rc = os_dev_create((struct os_dev *) &lps33thw, "lps33thw_0",
+      OS_DEV_INIT_PRIMARY, 0, lps33thw_init, (void *)&i2c_0_itf_lpst);
+    assert(rc == 0);
+
+    rc = config_lps33thw_sensor();
+    assert(rc == 0);
+#endif
+
 #if MYNEWT_VAL(LIS2DW12_OFB)
     rc = os_dev_create((struct os_dev *) &lis2dw12, "lis2dw12_0",
       OS_DEV_INIT_PRIMARY, 0, lis2dw12_init, (void *)&i2c_0_itf_lis2dw12);
@@ -1043,4 +1295,21 @@ assert(rc == 0);
     assert(rc == 0);
 #endif
 
+#if MYNEWT_VAL(LIS2DS12_OFB)
+    rc = os_dev_create((struct os_dev *) &lis2ds12, "lis2ds12_0",
+      OS_DEV_INIT_PRIMARY, 0, lis2ds12_init, (void *)&i2c_0_itf_lis2ds12);
+    assert(rc == 0);
+
+    rc = config_lis2ds12_sensor();
+    assert(rc == 0);
+#endif
+
+#if MYNEWT_VAL(BME680_OFB)
+    rc = os_dev_create((struct os_dev *) &bme680, "bme680_0",
+      OS_DEV_INIT_PRIMARY, 0, bme680_init, (void *)&i2c_0_itf_bme680);
+    assert(rc == 0);
+
+    rc = config_bme680_sensor();
+    assert(rc == 0);
+#endif
 }

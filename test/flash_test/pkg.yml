@@ -23,12 +23,11 @@ pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
 
 pkg.deps:
-    - kernel/os
-    - hw/hal
-    - sys/shell
+    - "@apache-mynewt-core/kernel/os"
+    - "@apache-mynewt-core/hw/hal"
+    - "@apache-mynewt-core/sys/shell"
 pkg.req_apis:
     - console
 
 pkg.init:
-    flash_test_init: 500
-
+    flash_test_init: 'MYNEWT_VAL(FLASH_TEST_SYSINIT_STAGE)'

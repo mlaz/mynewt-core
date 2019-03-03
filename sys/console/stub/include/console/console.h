@@ -20,11 +20,13 @@
 #define __CONSOLE_H__
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct os_event;
 struct os_eventq;
 
 struct console_input {
@@ -83,9 +85,13 @@ console_printf(const char *fmt, ...)
     return 0;
 }
 
-static void inline
-console_set_queues(struct os_eventq *avail_queue,
-                   struct os_eventq *cmd_queue)
+static inline void
+console_line_queue_set(struct os_eventq *evq)
+{
+}
+
+static inline void
+console_line_event_put(struct os_event *ev)
 {
 }
 
@@ -102,6 +108,23 @@ console_handle_char(uint8_t byte)
 
 static int inline
 console_out(int character)
+{
+    return 0;
+}
+
+static void inline
+console_silence(bool silent)
+{
+}
+
+static inline int
+console_lock(int timeout)
+{
+    return 0;
+}
+
+static inline int
+console_unlock(void)
 {
     return 0;
 }

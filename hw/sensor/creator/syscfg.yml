@@ -16,11 +16,12 @@
 # under the License.
 #
 
-# Package: hw/sensor/creator
-
 syscfg.defs:
     TSL2561_OFB:
         description: 'TSL2561 is present'
+        value : 0
+    TSL2591_OFB:
+        description: 'TSL2591 is present'
         value : 0
     DRV2605_OFB:
         description: 'DRV2605 is present'
@@ -58,10 +59,23 @@ syscfg.defs:
     LPS33HW_OFB:
         description: 'LPS33HW is present'
         value : 0
+    LPS33THW_OFB:
+        description: 'LPS33THW is present'
+        value : 0
     LIS2DW12_OFB:
         description: 'LIS2DW12 is present'
         value : 0
     BMA2XX_OFB:
         description: 'A sensor in the BMA2XX family is present'
         value : 0
+    LIS2DS12_OFB:
+        description: 'LIS2DS12 is present'
+        value : 0
+    BME680_OFB:
+        description: 'BME680 is present'
+        value: 0
 
+    SENSOR_CREATOR_SYSINIT_STAGE:
+        description: >
+            Sysinit stage for the sensor creator package.
+        value: 500

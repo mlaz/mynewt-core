@@ -52,12 +52,6 @@ flash_area_open(uint8_t id, const struct flash_area **fap)
     return SYS_ENOENT;
 }
 
-void
-flash_area_close(const struct flash_area *fa)
-{
-    /* nothing to do for now */
-}
-
 int
 flash_area_to_sectors(int id, int *cnt, struct flash_area *ret)
 {
@@ -89,6 +83,93 @@ flash_area_to_sectors(int id, int *cnt, struct flash_area *ret)
             (*cnt)++;
         }
     }
+    flash_area_close(fa);
+    return 0;
+}
+
+static inline int
+flash_range_end(const struct flash_sector_range *range)
+{
+    return range->fsr_flash_area.fa_off +
+        range->fsr_sector_count * range->fsr_sector_size;
+}
+
+int
+flash_area_to_sector_ranges(int id, int *cnt, struct flash_sector_range *ret)
+{
+    const struct flash_area *fa;
+    const struct hal_flash *hf;
+    struct flash_sector_range sr = { 0 };
+    struct flash_sector_range *current;
+    uint32_t start;      /* Sector start in flash */
+    uint32_t size;       /* Sector size */
+    uint32_t offset = 0; /* Address inside flash area */
+    int rc;
+    int i;
+    int allowed_ranges = UINT16_MAX;
+    int range_count = 0;
+    int sector_in_ranges = 0;
+
+    rc = flash_area_open(id, &fa);
+    if (rc != 0) {
+        return rc;
+    }
+
+    /* Respect maximum number of allowed ranges if specified and
+     * ret was given. Otherwise count required number of sector
+     * ranges.
+     */
+    if (*cnt > 0 && ret != NULL) {
+        allowed_ranges = *cnt;
+    }
+    if (ret) {
+        current = ret;
+    } else {
+        current = &sr;
+    }
+
+    hf = hal_bsp_flash_dev(fa->fa_device_id);
+    for (i = 0; i < hf->hf_sector_cnt; i++) {
+        hf->hf_itf->hff_sector_info(hf, i, &start, &size);
+        if (start >= fa->fa_off && start < fa->fa_off + fa->fa_size) {
+            if (range_count) {
+                /*
+                 * Extend range if sector is adjacent to previous one.
+                 */
+                if (flash_range_end(current) == start &&
+                    current->fsr_sector_size == size) {
+                    current->fsr_flash_area.fa_size += size;
+                    offset += size;
+                    current->fsr_sector_count++;
+                    sector_in_ranges++;
+                    continue;
+                } else if (ret != NULL) {
+                    if (range_count < allowed_ranges) {
+                        current = ++ret;
+                    } else {
+                        /* Found non-adjacent sector, but there is no
+                         * space for it, just stop looking and return
+                         * what was already found.
+                         */
+                        break;
+                    }
+                }
+            }
+            /* New sector range */
+            range_count++;
+            current->fsr_flash_area.fa_device_id = fa->fa_device_id;
+            current->fsr_flash_area.fa_id = id;
+            current->fsr_flash_area.fa_off = start;
+            current->fsr_flash_area.fa_size = size;
+            current->fsr_sector_size = size;
+            current->fsr_sector_count = 1;
+            current->fsr_first_sector = (uint16_t)sector_in_ranges;
+            current->fsr_range_start = offset;
+            current->fsr_align = hal_flash_align(fa->fa_device_id);
+        }
+    }
+    *cnt = range_count;
+
     flash_area_close(fa);
     return 0;
 }
@@ -167,9 +248,16 @@ flash_area_align(const struct flash_area *fa)
     return hal_flash_align(fa->fa_device_id);
 }
 
+uint32_t
+flash_area_erased_val(const struct flash_area *fa)
+{
+    return hal_flash_erased_val(fa->fa_device_id);
+}
+
+
 /**
  * Checks if a flash area has been erased. Returns false if there are any
- * non 0xFFFFFFFF bytes.
+ * non non-erased bytes.
  *
  * @param fa                    An opened flash area to iterate.
  *                                  the count of flash area TLVs in the meta
@@ -182,30 +270,24 @@ flash_area_align(const struct flash_area *fa)
 int
 flash_area_is_empty(const struct flash_area *fa, bool *empty)
 {
-    uint32_t data[64 >> 2];
-    uint32_t data_off = 0;
-    int8_t bytes_to_read;
-    uint8_t i;
     int rc;
 
-    while (data_off < fa->fa_size) {
-        bytes_to_read = min(64, fa->fa_size - data_off);
-        rc = flash_area_read(fa, data_off, data, bytes_to_read);
-        if (rc) {
-            return rc;
-        }
-        for (i = 0; i < bytes_to_read >> 2; i++) {
-          if (data[i] != (uint32_t) -1) {
-            goto not_empty;
-          }
-        }
-        data_off += bytes_to_read;
-    }
-    *empty = true;
-    return 0;
-not_empty:
     *empty = false;
+    rc = hal_flash_isempty_no_buf(fa->fa_device_id, fa->fa_off, fa->fa_size);
+    if (rc < 0) {
+        return rc;
+    } else if (rc == 1) {
+        *empty = true;
+    }
+
     return 0;
+}
+
+int
+flash_area_read_is_empty(const struct flash_area *fa, uint32_t off, void *dst,
+                         uint32_t len)
+{
+    return hal_flash_isempty(fa->fa_device_id, fa->fa_off + off, dst, len);
 }
 
 /**
@@ -267,36 +349,33 @@ flash_map_read_mfg(int max_areas,
                    struct flash_area *out_areas, int *out_num_areas)
 {
     struct mfg_meta_flash_area meta_flash_area;
-    struct mfg_meta_tlv tlv;
+    struct mfg_reader reader;
     struct flash_area *fap;
-    uint32_t off;
     int rc;
 
     *out_num_areas = 0;
-    off = 0;
 
     /* Ensure manufacturing meta region has been located in flash. */
-    rc = mfg_init();
-    if (rc != 0) {
-        return rc;
-    }
+    mfg_init();
+
+    mfg_open(&reader);
 
     while (1) {
         if (*out_num_areas >= max_areas) {
             return -1;
         }
 
-        rc = mfg_next_tlv_with_type(&tlv, &off, MFG_META_TLV_TYPE_FLASH_AREA);
+        rc = mfg_seek_next_with_type(&reader, MFG_META_TLV_TYPE_FLASH_AREA);
         switch (rc) {
         case 0:
             break;
-        case MFG_EDONE:
+        case SYS_EDONE:
             return 0;
         default:
             return rc;
         }
 
-        rc = mfg_read_tlv_flash_area(&tlv, off, &meta_flash_area);
+        rc = mfg_read_tlv_flash_area(&reader, &meta_flash_area);
         if (rc != 0) {
             return rc;
         }
@@ -327,21 +406,21 @@ flash_map_init(void)
 
     /* Use the hardcoded default flash map.  This is done for two reasons:
      * 1. A minimal flash map configuration is required to boot strap the
-     *    process of reading the flash map from the manufacturing meta region.
-     *    In particular, a FLASH_AREA_BOOTLOADER entry is required, as the meta
-     *    region is located at the end of the boot loader area.
-     * 2. If we fail to read the flash map from the meta region, the system
-     *    continues to use the default flash map.
+     *    process of reading the flash map from the manufacturing meta regions.
+     *    In particular, a FLASH_AREA_BOOTLOADER entry is required for the boot
+     *    MMR, as well as an entry for each extended MMR.
+     * 2. If we fail to read the flash map from the MMRs, the system continues
+     *    to use the default flash map.
      */
     flash_map = sysflash_map_dflt;
     flash_map_entries = sizeof sysflash_map_dflt / sizeof sysflash_map_dflt[0];
 
-    /* Attempt to read the flash map from the manufacturing meta region.  On
+    /* Attempt to read the flash map from the manufacturing meta regions.  On
      * success, use the new flash map instead of the default hardcoded one.
      */
     rc = flash_map_read_mfg(sizeof mfg_areas / sizeof mfg_areas[0],
                             mfg_areas, &num_areas);
-    if (rc == 0) {
+    if (rc == 0 && num_areas > 0) {
         flash_map = mfg_areas;
         flash_map_entries = num_areas;
     }

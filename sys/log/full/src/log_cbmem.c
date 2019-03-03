@@ -40,7 +40,32 @@ err:
 }
 
 static int
-log_cbmem_append_mbuf(struct log *log, struct os_mbuf *om)
+log_cbmem_append_body(struct log *log, const struct log_entry_hdr *hdr,
+                      const void *body, int body_len)
+{
+    struct cbmem *cbmem;
+
+    struct cbmem_scat_gath sg = {
+        .entries = (struct cbmem_scat_gath_entry[2]) {
+            {
+                .flat_buf = hdr,
+                .flat_len = sizeof *hdr,
+            },
+            {
+                .flat_buf = body,
+                .flat_len = body_len,
+            },
+        },
+        .count = 2,
+    };
+
+    cbmem = (struct cbmem *) log->l_arg;
+
+    return cbmem_append_scat_gath(cbmem, &sg);
+}
+
+static int
+log_cbmem_append_mbuf(struct log *log, const struct os_mbuf *om)
 {
     struct cbmem *cbmem;
     int rc;
@@ -53,8 +78,33 @@ log_cbmem_append_mbuf(struct log *log, struct os_mbuf *om)
     }
 
     return (0);
+
 err:
     return (rc);
+}
+
+static int
+log_cbmem_append_mbuf_body(struct log *log, const struct log_entry_hdr *hdr,
+                           const struct os_mbuf *om)
+{
+    struct cbmem *cbmem;
+
+    struct cbmem_scat_gath sg = {
+        .entries = (struct cbmem_scat_gath_entry[2]) {
+            {
+                .flat_buf = hdr,
+                .flat_len = sizeof *hdr,
+            },
+            {
+                .om = om,
+            },
+        },
+        .count = 2,
+    };
+
+    cbmem = (struct cbmem *) log->l_arg;
+
+    return cbmem_append_scat_gath(cbmem, &sg);
 }
 
 static int
@@ -156,12 +206,42 @@ err:
     return (rc);
 }
 
+#if MYNEWT_VAL(LOG_STORAGE_INFO)
+static int
+log_cbmem_storage_info(struct log *log, struct log_storage_info *info)
+{
+    struct cbmem *cbmem;
+    uint32_t size;
+    uint32_t used;
+
+    cbmem = (struct cbmem *)log->l_arg;
+
+    size = cbmem->c_buf_end - cbmem->c_buf;
+
+    used = (uint32_t)cbmem->c_entry_end + cbmem->c_entry_end->ceh_len -
+           (uint32_t)cbmem->c_entry_start;
+    if ((int32_t)used < 0) {
+        used += size;
+    }
+
+    info->size = size;
+    info->used = used;
+
+    return 0;
+}
+#endif
+
 const struct log_handler log_cbmem_handler = {
     .log_type = LOG_TYPE_MEMORY,
     .log_read = log_cbmem_read,
     .log_read_mbuf = log_cbmem_read_mbuf,
     .log_append = log_cbmem_append,
+    .log_append_body = log_cbmem_append_body,
     .log_append_mbuf = log_cbmem_append_mbuf,
+    .log_append_mbuf_body = log_cbmem_append_mbuf_body,
     .log_walk = log_cbmem_walk,
     .log_flush = log_cbmem_flush,
+#if MYNEWT_VAL(LOG_STORAGE_INFO)
+    .log_storage_info = log_cbmem_storage_info,
+#endif
 };
