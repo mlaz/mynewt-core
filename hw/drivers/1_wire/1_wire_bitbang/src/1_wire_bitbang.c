@@ -17,6 +17,9 @@
  * under the License.
  */
 #include "os/mynewt.h"
+#include <hal/hal_gpio.h>
+#include <hal/hal_timer.h>
+
 
 struct 1_wire_bus_master {
 
@@ -95,12 +98,22 @@ int
 
 /**
  * Bus reset.
- *
+ * https://www.maximintegrated.com/en/app-notes/index.mvp/id/126
  */
-int
+uint8_t
 1_wire_bb_reset(struct 1_wire_dev *dev)
 {
+    int result; // Wait for G in case of OD
+    hal_gpio_init_out(dev->pin, 0);
+    os_cputime_delay_usecs(480); //H
+    hal_gpio_write(dev->pin, 1);
+    os_cputime_delay_usecs(70); //I
 
+    hal_gpio_init_in(dev->pin, HAL_GPIO_PULL_UP);
+    //Should we wait for the pullup to rise before reading ?
+    result = (hal_gpio_read(dev->pin);
+    os_cputime_delay_usecs(410); //J
+    return result;
 }
 
 /**
@@ -110,7 +123,17 @@ int
 uint8_t
 1_wire_bb_read_bit(struct 1_wire_dev *dev)
 {
+    int result;
 
+    hal_gpio_init_out(dev->pin, 0);
+    os_cputime_delay_usecs(6); //A
+    hal_gpio_init_in(dev->pin, HAL_GPIO_PULL_UP);
+    os_cputime_delay_usecs(9); //E
+
+    result = hal_gpio_read(dev->pin);
+    os_cputime_delay_usecs(55); //F
+
+    return result;
 }
 
 /**
@@ -118,80 +141,102 @@ uint8_t
  *
  */
 void
-1_wire_bb_write_bit(struct 1_wire_dev *dev, uint8_t)
+1_wire_bb_write_bit(struct 1_wire_dev *dev, uint8_t bit)
 {
-
+    if (bit) {
+		    hal_gpio_init_out(dev->pin, 0);
+        os_cputime_delay_usecs(6); //A
+        hal_gpio_init_in(dev->pin, HAL_GPIO_PULL_UP);
+        os_cputime_delay_usecs(64); //B
+    } else {
+        hal_gpio_init_out(dev->pin, 0);
+        os_cputime_delay_usecs(60); //C
+        dev->hal_gpio_init_in(dev->pin, HAL_GPIO_PULL_UP);
+        os_cputime_delay_usecs(10); //D
+    }
 }
 
 /**
  * Read a byte from selected slave.
  *
  */
-uint8_t
-1_wire_bb_read_byte(struct 1_wire_dev *dev)
-{
+/* uint8_t */
+/* 1_wire_bb_read_byte(struct 1_wire_dev *dev) */
+/* { */
+/*     int i; */
+/*     uint8_t word = 0; */
 
-}
+/*     for (i = 1; i < 8; i++) { */
+/*         word >>= 1; */
+/*         word |= (1_wireb_b_read_bit(dev)) ? 0x80 : 0x00; */
+/*     } */
+
+/*     return word; */
+/* } */
 
 /**
  * Write a byte to selected slave.
  *
  */
-void
-1_wire_bb_write_byte(struct 1_wire_dev *dev, uint8_t)
-{
-
-}
+/* void */
+/* 1_wire_bb_write_byte(struct 1_wire_dev *dev, uint8_t word) */
+/* { */
+/*    int i; */
+/*    for (i = 0; i < 8; i++) { */
+/*        1_wire_bb_write_bit(dev, word & 0x01); */
+/*        data >>= 1; */
+/*    } */
+/* } */
 
 /**
  * Read a block of len bytes from selected slave.
  *
  */
-uint8_t
-1_wire_bb_read_block(struct 1_wire_dev *dev, uint8_t *block, int len)
-{
+/* uint8_t */
+/* 1_wire_bb_read_block(struct 1_wire_dev *dev, uint8_t *block, int len) */
+/* { */
 
-}
+/* } */
 
 /**
  * Write a block of len bytes to selected slave.
  *
  */
-void
-1_wire_bb_write_block(struct 1_wire_dev *dev, const uint8_t *block, int len)
-{
+/* void */
+/* 1_wire_bb_write_block(struct 1_wire_dev *dev, const uint8_t *block, int len) */
+/* { */
 
-}
+/* } */
 
-/**
- *
- *
- */
-int
-1_wire_bb_reset_select_slave(struct 1_wire_slave *slave)
-{
+/* /\** */
+/*  * */
+/*  * */
+/*  *\/ */
+/* int */
+/* 1_wire_bb_reset_select_slave(struct 1_wire_slave *slave) */
+/* { */
 
-}
+/* } */
 
-/**
- *
- *
- */
-int
-1_wire_bb_reset_resume_command(struct 1_wire_dev *dev)
-{
+/* /\** */
+/*  * */
+/*  * */
+/*  *\/ */
+/* int */
+/* 1_wire_bb_reset_resume_command(struct 1_wire_dev *dev) */
+/* { */
 
-}
+/* } */
 
-/**
- *
- *
- */
-void
-1_wire_bb_next_pullup(struct 1_wire_dev *dev, int)
-{
+/* /\** */
+/*  * */
+/*  * */
+/*  *\/ */
+/* void */
+/* 1_wire_bb_next_pullup(struct 1_wire_dev *dev, int) */
+/* { */
 
-}
+/* } */
 
 /**
  * Callback to initialize a 1_wire_dev structure from the os device
@@ -220,12 +265,13 @@ int
     1_wire_funcs->1_wire_reset = 1_wire_bb_reset;
     1_wire_funcs->1_wire_read_bit = 1_wire_bb_read_bit;
     1_wire_funcs->1_wire_write_bit = 1_wire_bb_write_bit;
-    1_wire_funcs->1_wire_read_byte = 1_wire_bb_read_byte;
-    1_wire_funcs->1_wire_write_byte = 1_wire_bb_write_byte;
-    1_wire_funcs->1_wire_read_block = 1_wire_bb_read_block;
-    1_wire_funcs->1_wire_write_block = 1_wire_bb_write_block;
-    1_wire_funcs->1_wire_select_slave = 1_wire_bb_select_slave;
-    1_wire_funcs->1_wire_next_pullup = 1_wire_bb_next_pullup;
+    1_wire_funcs->1_wire_read_byte = NULL;
+    1_wire_funcs->1_wire_write_byte = NULL;
+    1_wire_funcs->1_wire_read_block = NULL;
+    1_wire_funcs->1_wire_write_block = NULL;
+    /* 1_wire_funcs->1_wire_slave_search = 1_wire_bb_select_slave; */
+    /* 1_wire_funcs->1_wire_select_slave = 1_wire_bb_select_slave; */
+    /* 1_wire_funcs->1_wire_next_pullup = 1_wire_bb_next_pullup; */
 
     return (0);
 }
