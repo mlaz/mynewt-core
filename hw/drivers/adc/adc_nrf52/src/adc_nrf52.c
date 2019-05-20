@@ -37,12 +37,14 @@ struct nrf52_saadc_stats {
 static struct nrf52_saadc_stats nrf52_saadc_stats;
 
 static struct adc_dev *global_adc_dev;
-static nrfx_saadc_config_t *global_adc_config;
-static struct nrf52_adc_dev_cfg *init_adc_config;
+static nrfx_saadc_config_t global_adc_config;
+static nrf_saadc_channel_config_t nrf52_adc_chans[NRF_SAADC_CHANNEL_COUNT];
+static void *g_buf1;
+static void *g_buf2;
+static int g_buf_len;
 
-static uint8_t nrf52_adc_chans[NRF_SAADC_CHANNEL_COUNT * sizeof(struct adc_chan_config)];
-
-static void
+/* static int calibrated = 0; */
+void
 nrf52_saadc_event_handler(const nrfx_saadc_evt_t *event)
 {
     nrfx_saadc_done_evt_t *done_ev;
@@ -63,11 +65,20 @@ nrf52_saadc_event_handler(const nrfx_saadc_evt_t *event)
                                        global_adc_dev->ad_event_handler_arg,
                                        ADC_EVENT_RESULT, done_ev->p_buffer,
                                        done_ev->size * sizeof(nrf_saadc_value_t));
+            if (global_adc_config.low_power_mode /* && (calibrated >= 2) */) {
+                nrf_saadc_disable();
+                NVIC_ClearPendingIRQ(SAADC_IRQn);
+                /* calibrated = 0; */
+            }
+
             break;
         case NRFX_SAADC_EVT_CALIBRATEDONE:
             rc = global_adc_dev->ad_event_handler_func(global_adc_dev,
                                        global_adc_dev->ad_event_handler_arg,
                                        ADC_EVENT_CALIBRATED, NULL, 0);
+            /* if (g_buf2) { */
+            /*     calibrated++; */
+            /* } */
             break;
         default:
             assert(0);
@@ -79,6 +90,33 @@ nrf52_saadc_event_handler(const nrfx_saadc_evt_t *event)
     }
 }
 
+/**
+ * Initialize the driver instance.
+ */
+static void
+init_instance(nrfx_saadc_config_t* od_conf)
+{
+    nrfx_saadc_config_t dflt_dev_cfg = NRFX_SAADC_DEFAULT_CONFIG;
+    nrf_saadc_channel_config_t dflt_chan_cfg =
+        NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE (NRF_SAADC_INPUT_DISABLED);
+    int idx;
+
+    if (od_conf) {
+        memcpy(&global_adc_config, &od_conf, sizeof(nrfx_saadc_config_t));
+    } else {
+        memcpy(&global_adc_config, &dflt_dev_cfg, sizeof(nrfx_saadc_config_t));
+    }
+
+    for (idx = 0; idx < NRF_SAADC_CHANNEL_COUNT; idx++) {
+        memcpy(&nrf52_adc_chans[idx],
+               &dflt_chan_cfg,
+               sizeof(nrf_saadc_channel_config_t));
+    }
+
+    g_buf1 = NULL;
+    g_buf2 = NULL;
+    g_buf_len = 0;
+}
 
 /**
  * Open the NRF52 ADC device
@@ -112,18 +150,22 @@ nrf52_adc_open(struct os_dev *odev, uint32_t wait, void *arg)
         unlock = 1;
     }
 
-    if (++(dev->ad_ref_cnt) == 1) {
-        /* Initialize the device */
-        rc = nrfx_saadc_init((nrfx_saadc_config_t *) arg,
-                nrf52_saadc_event_handler);
-        if (rc != NRFX_SUCCESS) {
-            goto err;
-        }
-        rc = 0;
+    /* if (++(dev->ad_ref_cnt) == 1) { */
+        /* Initialize the driver */
+        init_instance((nrfx_saadc_config_t *) arg);
 
+        if (!global_adc_config.low_power_mode) {
+            rc = nrfx_saadc_init(&global_adc_config,
+                                 nrf52_saadc_event_handler);
+            if (rc != NRFX_SUCCESS) {
+                goto err;
+            }
+        }
+
+        rc = 0;
         global_adc_dev = dev;
-        global_adc_config = arg;
-    }
+    /* } */
+
 err:
     if (unlock) {
         os_mutex_release(&dev->ad_lock);
@@ -143,6 +185,7 @@ static int
 nrf52_adc_close(struct os_dev *odev)
 {
     struct adc_dev *dev;
+
     int rc = 0;
     int unlock = 0;
 
@@ -155,12 +198,13 @@ nrf52_adc_close(struct os_dev *odev)
         }
         unlock = 1;
     }
-    if (--(dev->ad_ref_cnt) == 0) {
-        nrfx_saadc_uninit();
+    /* if (--(dev->ad_ref_cnt) == 0) { */
+        if (!global_adc_config.low_power_mode) {
+            nrfx_saadc_uninit();
+        }
 
         global_adc_dev = NULL;
-        global_adc_config = NULL;
-    }
+    /* } */
 
 err:
     if (unlock) {
@@ -181,52 +225,56 @@ err:
  * @return 0 on success, non-zero on failure.
  */
 static int
-nrf52_adc_configure_channel(struct adc_dev *dev, uint8_t cnum,
-        void *cfgdata)
+nrf52_adc_configure_channel(struct adc_dev *dev,
+                            uint8_t cnum,
+                            void *cfgdata)
 {
     nrf_saadc_channel_config_t *cc;
     uint16_t refmv;
     uint8_t res;
     int rc;
 
-    cc = (nrf_saadc_channel_config_t *) cfgdata;
-
-    rc = nrfx_saadc_channel_init(cnum, cc);
-    if (rc != NRFX_SUCCESS) {
-        goto err;
-    }
-
-    if (global_adc_config) {
-        /* Set the resolution and reference voltage for this channel to
-        * enable conversion functions.
-        */
-        switch (global_adc_config->resolution) {
-            case NRF_SAADC_RESOLUTION_8BIT:
-                res = 8;
-                break;
-            case NRF_SAADC_RESOLUTION_10BIT:
-                res = 10;
-                break;
-            case NRF_SAADC_RESOLUTION_12BIT:
-                res = 12;
-                break;
-            case NRF_SAADC_RESOLUTION_14BIT:
-                res = 14;
-                break;
-            default:
-                assert(0);
+    memcpy (&nrf52_adc_chans[cnum], cfgdata, sizeof(nrf_saadc_channel_config_t));
+    if (!global_adc_config.low_power_mode) {
+        rc = nrfx_saadc_channel_init(cnum, &nrf52_adc_chans[cnum]);
+        if (rc != NRFX_SUCCESS) {
+            goto err;
         }
-    } else {
-        /* Default to 10-bit resolution. */
-        res = 10;
     }
+
+    cc = &nrf52_adc_chans[cnum];
+
+    /* if (global_adc_config) { */
+    /*     /\* Set the resolution and reference voltage for this channel to */
+    /*     * enable conversion functions. */
+    /*     *\/ */
+    switch (global_adc_config.resolution) {
+    case NRF_SAADC_RESOLUTION_8BIT:
+        res = 8;
+        break;
+    case NRF_SAADC_RESOLUTION_10BIT:
+        res = 10;
+        break;
+    case NRF_SAADC_RESOLUTION_12BIT:
+        res = 12;
+        break;
+    case NRF_SAADC_RESOLUTION_14BIT:
+        res = 14;
+        break;
+    default:
+        assert(0);
+    }
+    /* } else { */
+    /*     /\* Default to 10-bit resolution. *\/ */
+    /*     res = 10; */
+    /* } */
 
     switch (cc->reference) {
         case NRF_SAADC_REFERENCE_INTERNAL:
             refmv = 600; /* 0.6V for NRF52 */
             break;
         case NRF_SAADC_REFERENCE_VDD4:
-            refmv = init_adc_config->nadc_refmv / 4;
+            refmv = MYNEWT_VAL(ADC_0_REFMV_0 / 4);
             break;
         default:
             assert(0);
@@ -276,8 +324,10 @@ err:
  * Sets both the primary and secondary buffers for DMA.
  */
 static int
-nrf52_adc_set_buffer(struct adc_dev *dev, void *buf1, void *buf2,
-        int buf_len)
+nrf52_adc_set_buffer(struct adc_dev *dev,
+                     void *buf1,
+                     void *buf2,
+                     int buf_len)
 {
     int rc;
 
@@ -286,18 +336,26 @@ nrf52_adc_set_buffer(struct adc_dev *dev, void *buf1, void *buf2,
      */
     buf_len /= sizeof(nrf_saadc_value_t);
 
-    rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) buf1, buf_len);
-    if (rc != NRFX_SUCCESS) {
-        goto err;
-    }
+    g_buf1 = buf1;
+    g_buf2 = buf2;
+    g_buf_len = buf_len;
 
-    if (buf2) {
-        rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) buf2,
-                buf_len);
+    if (!global_adc_config.low_power_mode) {
+
+        rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) buf1, buf_len);
         if (rc != NRFX_SUCCESS) {
             goto err;
         }
+
+        if (buf2) {
+            rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) buf2,
+                                           buf_len);
+            if (rc != NRFX_SUCCESS) {
+                goto err;
+            }
+        }
     }
+
     return (0);
 err:
     return (rc);
@@ -326,9 +384,47 @@ err:
 static int
 nrf52_adc_sample(struct adc_dev *dev)
 {
+    int idx;
+    int rc = NRFX_SUCCESS;
+
+    if (global_adc_config.low_power_mode) {
+        /* Init Device */
+        rc = nrfx_saadc_init(&global_adc_config, nrf52_saadc_event_handler);
+        if (rc != NRFX_SUCCESS) {
+          goto err;
+        }
+
+        /* Configure Channels */
+        for (idx = 0; idx < NRF_SAADC_CHANNEL_COUNT; idx++) {
+            if (nrf52_adc_chans[idx].pin_p == NRF_SAADC_INPUT_DISABLED) {
+                continue;
+            }
+            rc = nrfx_saadc_channel_init(idx, &nrf52_adc_chans[idx]);
+            if (rc != NRFX_SUCCESS) {
+                goto err;
+            }
+        }
+
+        /* Set Buffers */
+        rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) g_buf1, g_buf_len);
+        if (rc != NRFX_SUCCESS) {
+            goto err;
+        }
+
+        if (g_buf2) {
+            rc = nrfx_saadc_buffer_convert((nrf_saadc_value_t *) g_buf2,
+                                           g_buf_len);
+            if (rc != NRFX_SUCCESS) {
+                goto err;
+            }
+        }
+    }
+
     nrfx_saadc_sample();
 
     return (0);
+ err:
+    return (rc);
 }
 
 /**
@@ -414,7 +510,7 @@ static const struct adc_driver_funcs nrf52_adc_funcs = {
  * that subsequent lookups to this device allow us to manipulate it.
  */
 int
-nrf52_adc_dev_init(struct os_dev *odev, void *arg)
+nrf52_adc_dev_init(struct os_dev *odev, void *unused)
 {
     struct adc_dev *dev;
 
@@ -427,9 +523,6 @@ nrf52_adc_dev_init(struct os_dev *odev, void *arg)
 
     OS_DEV_SETHANDLERS(odev, nrf52_adc_open, nrf52_adc_close);
 
-    assert(init_adc_config == NULL || init_adc_config == arg);
-    init_adc_config = arg;
-
     dev->ad_funcs = &nrf52_adc_funcs;
 
 #if MYNEWT_VAL(OS_SYSVIEW)
@@ -440,5 +533,3 @@ nrf52_adc_dev_init(struct os_dev *odev, void *arg)
 
     return (0);
 }
-
-

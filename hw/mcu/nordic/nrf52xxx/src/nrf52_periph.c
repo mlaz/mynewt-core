@@ -61,9 +61,9 @@
 
 #if MYNEWT_VAL(ADC_0)
 static struct adc_dev os_bsp_adc0;
-static struct nrf52_adc_dev_cfg os_bsp_adc0_config = {
-    .nadc_refmv = MYNEWT_VAL(ADC_0_REFMV_0),
-};
+/* static struct nrf52_adc_dev_cfg os_bsp_adc0_config = { */
+/*     .nadc_refmv = MYNEWT_VAL(ADC_0_REFMV_0), */
+/* }; */
 #endif
 
 #if MYNEWT_VAL(PWM_0)
@@ -266,7 +266,7 @@ nrf52_periph_create_adc(void)
 #if MYNEWT_VAL(ADC_0)
     rc = os_dev_create(&os_bsp_adc0.ad_dev, "adc0",
                        OS_DEV_INIT_KERNEL, OS_DEV_INIT_PRIO_DEFAULT,
-                       nrf52_adc_dev_init, &os_bsp_adc0_config);
+                       nrf52_adc_dev_init, NULL);
     assert(rc == 0);
 #endif
 }
