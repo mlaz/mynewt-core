@@ -58,7 +58,10 @@ static struct nrf52_pwm_dev_global instances[] =
     [0].in_use = false,
     [0].playing = false,
     [0].drv_instance = NRFX_PWM_INSTANCE(0),
-    [0].config = NRFX_PWM_DEFAULT_CONFIG,
+    [0].config = NRFX_PWM_DEFAULT_CONFIG(NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED),
     [0].flags = NRFX_PWM_FLAG_LOOP,
     [0].duty_cycles = {0},
     [0].n_cycles = 1,
@@ -72,7 +75,10 @@ static struct nrf52_pwm_dev_global instances[] =
     [1].in_use = false,
     [1].playing = false,
     [1].drv_instance = NRFX_PWM_INSTANCE(1),
-    [1].config = NRFX_PWM_DEFAULT_CONFIG,
+    [1].config = NRFX_PWM_DEFAULT_CONFIG(NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED),
     [1].flags = NRFX_PWM_FLAG_LOOP,
     [1].duty_cycles = {0},
     [1].n_cycles = 1,
@@ -86,7 +92,10 @@ static struct nrf52_pwm_dev_global instances[] =
     [2].in_use = false,
     [2].playing = false,
     [2].drv_instance = NRFX_PWM_INSTANCE(2),
-    [2].config = NRFX_PWM_DEFAULT_CONFIG,
+    [2].config = NRFX_PWM_DEFAULT_CONFIG(NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED),
     [2].flags = NRFX_PWM_FLAG_LOOP,
     [2].duty_cycles = {0},
     [2].n_cycles = 1,
@@ -100,7 +109,10 @@ static struct nrf52_pwm_dev_global instances[] =
     [3].in_use = false,
     [3].playing = false,
     [3].drv_instance = NRFX_PWM_INSTANCE(3),
-    [3].config = NRFX_PWM_DEFAULT_CONFIG,
+    [3].config = NRFX_PWM_DEFAULT_CONFIG(NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED,
+                                         NRFX_PWM_PIN_NOT_USED),
     [3].flags = NRFX_PWM_FLAG_LOOP,
     [3].duty_cycles = {0},
     [3].n_cycles = 1,
@@ -113,7 +125,7 @@ static struct nrf52_pwm_dev_global instances[] =
 };
 
 #if MYNEWT_VAL(PWM_0)
-static void handler_0(nrfx_pwm_evt_type_t event_type)
+static void handler_0(nrfx_pwm_evt_type_t event_type, void * unused)
 {
     switch (event_type)
     {
@@ -136,7 +148,7 @@ static void handler_0(nrfx_pwm_evt_type_t event_type)
 #endif
 
 #if MYNEWT_VAL(PWM_1)
-static void handler_1(nrfx_pwm_evt_type_t event_type)
+static void handler_1(nrfx_pwm_evt_type_t event_type, void * unused)
 {
     switch (event_type)
     {
@@ -159,7 +171,7 @@ static void handler_1(nrfx_pwm_evt_type_t event_type)
 #endif
 
 #if MYNEWT_VAL(PWM_2)
-static void handler_2(nrfx_pwm_evt_type_t event_type)
+static void handler_2(nrfx_pwm_evt_type_t event_type, void * unused)
 {
     switch (event_type)
     {
@@ -183,7 +195,7 @@ static void handler_2(nrfx_pwm_evt_type_t event_type)
 #endif
 
 #if MYNEWT_VAL(PWM_3)
-static void handler_3(nrfx_pwm_evt_type_t event_type)
+static void handler_3(nrfx_pwm_evt_type_t event_type, void * unused)
 {
     switch (event_type)
     {
@@ -248,6 +260,7 @@ init_instance(int inst_id, nrfx_pwm_config_t* init_conf)
         config->top_value    = 10000;
         config->load_mode    = NRF_PWM_LOAD_INDIVIDUAL;
         config->step_mode    = NRF_PWM_STEP_AUTO;
+        config->skip_gpio_cfg = false;
     } else {
         memcpy(config, init_conf, sizeof(nrfx_pwm_config_t));
     }
@@ -422,7 +435,8 @@ nrf52_pwm_configure_device(struct pwm_dev *dev, struct pwm_dev_cfg *cfg)
         nrfx_pwm_uninit(&instance->drv_instance);
         nrfx_pwm_init(&instance->drv_instance,
                       &instance->config,
-                      instance->internal_handler);
+                      instance->internal_handler,
+                      NULL);
 
         play_current_config(instance);
     }
@@ -459,7 +473,8 @@ nrf52_pwm_configure_channel(struct pwm_dev *dev,
         nrfx_pwm_uninit(&instance->drv_instance);
         nrfx_pwm_init(&instance->drv_instance,
                       &instance->config,
-                      instance->internal_handler);
+                      instance->internal_handler,
+                      NULL);
 
         play_current_config(instance);
     }
@@ -519,7 +534,8 @@ nrf52_pwm_enable(struct pwm_dev *dev)
 
     nrfx_pwm_init(&instance->drv_instance,
                   &instance->config,
-                  instance->internal_handler);
+                  instance->internal_handler,
+                  NULL);
     play_current_config(instance);
     instance->playing = true;
 
@@ -623,7 +639,8 @@ nrf52_pwm_set_frequency(struct pwm_dev *dev, uint32_t freq_hz)
         nrfx_pwm_uninit(&instances[inst_id].drv_instance);
         nrfx_pwm_init(&instances[inst_id].drv_instance,
                       &instances[inst_id].config,
-                      instances[inst_id].internal_handler);
+                      instances[inst_id].internal_handler,
+                      NULL);
 
         play_current_config(&instances[inst_id]);
     }
