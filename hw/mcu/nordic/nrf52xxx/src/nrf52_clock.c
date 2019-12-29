@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include "mcu/nrf52_hal.h"
 #include "nrfx.h"
+#include "nrf_clock.h"
 
 static uint8_t nrf52_clock_hfxo_refcnt;
 
@@ -40,8 +41,10 @@ nrf52_clock_hfxo_request(void)
     assert(nrf52_clock_hfxo_refcnt < 0xff);
     if (nrf52_clock_hfxo_refcnt == 0) {
         /* Make sure that the HFXO has not previously been started manually */
-        assert((NRF_CLOCK->HFCLKSTAT & CLOCK_HFCLKSTAT_STATE_Msk) !=
-            (CLOCK_HFCLKSTAT_STATE_Running << CLOCK_HFCLKSTAT_STATE_Pos));
+        assert((NRF_CLOCK->HFCLKSTAT & (CLOCK_HFCLKSTAT_STATE_Msk |
+                                       CLOCK_HFCLKSTAT_SRC_Msk)) ==
+            (CLOCK_HFCLKSTAT_STATE_Msk |
+             (NRF_CLOCK_HFCLK_HIGH_ACCURACY << CLOCK_HFCLKSTAT_SRC_Pos)));
         NRF_CLOCK->EVENTS_HFCLKSTARTED = 0;
         NRF_CLOCK->TASKS_HFCLKSTART = 1;
         while (NRF_CLOCK->EVENTS_HFCLKSTARTED == 0);
