@@ -21,7 +21,6 @@
 
 #include <adc/adc.h>
 
-#include <DA1469xAB.h>
 #include <mcu/mcu.h>
 #include <mcu/da1469x_pd.h>
 
@@ -30,14 +29,14 @@
 static struct da1469x_sdadc_dev *da1469x_sdadc_dev;
 
 static const int da1469x_sdadc_src2pin[] = {
-    MCU_GPIO_PORT1(9),  /* 0 */
-    MCU_GPIO_PORT0(25), /* 1 */
-    MCU_GPIO_PORT0(8),  /* 2 */
-    MCU_GPIO_PORT0(9),  /* 3 */
-    MCU_GPIO_PORT1(14), /* 4 */
-    MCU_GPIO_PORT1(20), /* 5 */
-    MCU_GPIO_PORT1(21), /* 6 */
-    MCU_GPIO_PORT1(22), /* 7 */
+    MCU_PIN_SDADC0,  /* 0 */
+    MCU_PIN_SDADC1,  /* 1 */
+    MCU_PIN_SDADC2,  /* 2 */
+    MCU_PIN_SDADC3,  /* 3 */
+    MCU_PIN_SDADC4,  /* 4 */
+    MCU_PIN_SDADC5,  /* 5 */
+    MCU_PIN_SDADC6,  /* 6 */
+    MCU_PIN_SDADC7,  /* 7 */
 };
 #define DA1469X_SDADC_SRC2PIN_SZ                                        \
     (sizeof(da1469x_sdadc_src2pin) / sizeof(da1469x_sdadc_src2pin[0]))
@@ -453,3 +452,28 @@ da1469x_sdadc_init(struct os_dev *odev, void *arg)
 
     return 0;
 }
+
+#if MYNEWT_VAL(SDADC_BATTERY)
+
+static struct da1469x_sdadc_dev_cfg os_bsp_adc_battery_cfg = {
+    .dsdc_sdadc_ctrl = (1U << SDADC_SDADC_CTRL_REG_SDADC_SE_Pos) |
+                       (8U << SDADC_SDADC_CTRL_REG_SDADC_INP_SEL_Pos),
+    .dsdc_sdadc_gain_corr = 0,
+    .dsdc_sdadc_offs_corr = 0,
+    .dsdc_sdadc_set_gain_corr = 0,
+    .dsdc_sdadc_set_offs_corr = 0,
+};
+
+struct os_dev *
+da1469x_open_battery_adc(const char *dev_name, uint32_t wait)
+{
+    struct os_dev *adc = os_dev_open(dev_name, wait, &os_bsp_adc_battery_cfg);
+    if (adc) {
+        /* call adc_chan_config to setup correct multiplier so read returns
+         * value in mV */
+        adc_chan_config((struct adc_dev *)adc, 0, NULL);
+    }
+    return adc;
+}
+
+#endif

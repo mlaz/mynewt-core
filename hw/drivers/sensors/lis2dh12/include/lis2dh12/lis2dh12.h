@@ -216,7 +216,8 @@ struct lis2dh12_cfg {
     uint8_t latch_int2    : 1;
     uint8_t d4d_int1      : 1;
     uint8_t d4d_int2      : 1;
-    uint8_t int_pp_od     : 1;
+    /* Interrupt polarity 0 - active high */
+    uint8_t int_pol       : 1;
 
     /* Power mode */
     uint8_t power_mode;
@@ -542,6 +543,17 @@ lis2dh12_hpf_cfg(struct sensor_itf *itf, uint8_t reg);
  */
 int
 lis2dh12_set_op_mode(struct sensor_itf *itf, uint8_t mode);
+
+/**
+ * Get operating mode
+ *
+ * @param the sensor interface
+ * @param ptr to mode
+ *
+ * @return 0 on success, non-zero on failure
+ */
+int
+lis2dh12_get_op_mode(struct sensor_itf *itf, uint8_t *mode);
 
 /**
  * Clear click interrupt

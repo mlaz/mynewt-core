@@ -21,6 +21,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -86,6 +87,12 @@ console_echo(int on)
 {
 }
 
+static int inline
+console_vprintf(const char *fmt, va_list ap)
+{
+    return 0;
+}
+
 static int inline console_printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 
@@ -120,6 +127,11 @@ static int inline
 console_out(int character)
 {
     return 0;
+}
+
+static inline void
+console_prompt_set(const char *prompt, const char *line)
+{
 }
 
 static void inline

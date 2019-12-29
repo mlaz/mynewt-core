@@ -23,6 +23,7 @@
 #include "os/os_cputime.h"
 #include "mcu/da1469x_hal.h"
 #include "mcu/da1469x_dma.h"
+#include "bsp/bsp.h"
 
 #if MYNEWT_VAL(UART_0) || MYNEWT_VAL(UART_1) || MYNEWT_VAL(UART_2)
 #include "uart/uart.h"
@@ -31,7 +32,11 @@
 #if MYNEWT_VAL(BUS_DRIVER_PRESENT)
 #include "bus/bus.h"
 #if MYNEWT_VAL(I2C_0) || MYNEWT_VAL(I2C_1)
+#if MYNEWT_VAL(I2C_DA1469X_BUS_DRIVER)
+#include "bus/drivers/i2c_da1469x.h"
+#else
 #include "bus/drivers/i2c_hal.h"
+#endif
 #endif
 #else
 #if MYNEWT_VAL(I2C_0) || MYNEWT_VAL(I2C_1)
@@ -70,6 +75,10 @@ static struct trng_dev os_bsp_trng;
 #include <sdadc_da1469x/sdadc_da1469x.h>
 #endif
 
+#if MYNEWT_VAL(CHARGER)
+#include "da1469x_charger/da1469x_charger.h"
+#endif
+
 #if MYNEWT_VAL(UART_0)
 static struct uart_dev os_bsp_uart0;
 static const struct da1469x_uart_cfg os_bsp_uart0_cfg = {
@@ -77,6 +86,7 @@ static const struct da1469x_uart_cfg os_bsp_uart0_cfg = {
     .pin_rx = MYNEWT_VAL(UART_0_PIN_RX),
     .pin_rts = -1,
     .pin_cts = -1,
+    .rx_pullup = MYNEWT_VAL(UART_0_RX_ENABLE_PULLUP)
 };
 #endif
 #if MYNEWT_VAL(UART_1)
@@ -86,6 +96,7 @@ static const struct da1469x_uart_cfg os_bsp_uart1_cfg = {
     .pin_rx = MYNEWT_VAL(UART_1_PIN_RX),
     .pin_rts = MYNEWT_VAL(UART_1_PIN_RTS),
     .pin_cts = MYNEWT_VAL(UART_1_PIN_CTS),
+    .rx_pullup = MYNEWT_VAL(UART_1_RX_ENABLE_PULLUP)
 };
 #endif
 #if MYNEWT_VAL(UART_2)
@@ -95,6 +106,7 @@ static const struct da1469x_uart_cfg os_bsp_uart2_cfg = {
     .pin_rx = MYNEWT_VAL(UART_2_PIN_RX),
     .pin_rts = MYNEWT_VAL(UART_2_PIN_RTS),
     .pin_cts = MYNEWT_VAL(UART_2_PIN_CTS),
+    .rx_pullup = MYNEWT_VAL(UART_2_RX_ENABLE_PULLUP)
 };
 #endif
 
@@ -154,7 +166,7 @@ static const struct bus_spi_dev_cfg spi0_cfg = {
     .pin_mosi = MYNEWT_VAL(SPI_0_MASTER_PIN_MOSI),
     .pin_miso = MYNEWT_VAL(SPI_0_MASTER_PIN_MISO),
 };
-static struct bus_spi_dev spi0_bus;
+static struct bus_spi_hal_dev spi0_bus;
 #else
 static const struct da1469x_hal_spi_cfg hal_spi0_cfg = {
     .pin_sck = MYNEWT_VAL(SPI_0_MASTER_PIN_SCK),
@@ -178,7 +190,7 @@ static const struct bus_spi_dev_cfg spi1_cfg = {
     .pin_mosi = MYNEWT_VAL(SPI_1_MASTER_PIN_MOSI),
     .pin_miso = MYNEWT_VAL(SPI_1_MASTER_PIN_MISO),
 };
-static struct bus_spi_dev spi1_bus;
+static struct bus_spi_hal_dev spi1_bus;
 #else
 static const struct da1469x_hal_spi_cfg hal_spi1_cfg = {
     .pin_sck = MYNEWT_VAL(SPI_1_MASTER_PIN_SCK),
@@ -202,6 +214,10 @@ static struct pwm_dev os_bsp_pwm1;
 #endif
 #if MYNEWT_VAL(PWM_2)
 static struct pwm_dev os_bsp_pwm2;
+#endif
+
+#if MYNEWT_VAL(CHARGER)
+struct da1469x_charger_dev da1469x_charger_dev;
 #endif
 
 static void
@@ -330,8 +346,13 @@ da1469x_periph_create_i2c(void)
 
 #if MYNEWT_VAL(I2C_0)
 #if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+#if MYNEWT_VAL(I2C_DA1469X_BUS_DRIVER)
+    rc = bus_i2c_da1469x_dev_create("i2c0", &i2c0_bus,
+                                    (struct bus_i2c_dev_cfg *)&i2c0_cfg);
+#else
     rc = bus_i2c_hal_dev_create("i2c0", &i2c0_bus,
                                 (struct bus_i2c_dev_cfg *)&i2c0_cfg);
+#endif
     assert(rc == 0);
 #else
     rc = hal_i2c_init(0, (void *)&hal_i2c0_cfg);
@@ -341,8 +362,13 @@ da1469x_periph_create_i2c(void)
 
 #if MYNEWT_VAL(I2C_1)
 #if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+#if MYNEWT_VAL(I2C_DA1469X_BUS_DRIVER)
+    rc = bus_i2c_da1469x_dev_create("i2c1", &i2c1_bus,
+                                    (struct bus_i2c_dev_cfg *)&i2c1_cfg);
+#else
     rc = bus_i2c_hal_dev_create("i2c1", &i2c1_bus,
                                 (struct bus_i2c_dev_cfg *)&i2c1_cfg);
+#endif
     assert(rc == 0);
 #else
     rc = hal_i2c_init(1, (void *)&hal_i2c1_cfg);
@@ -391,6 +417,49 @@ da1469x_periph_create_spi(void)
 #endif
 }
 
+#if MYNEWT_VAL(CHARGER)
+struct da1469x_charger_config cfg = {
+    .ctrl = 63U << CHARGER_CHARGER_CTRL_REG_EOC_INTERVAL_CHECK_THRES_Pos |
+            1U << CHARGER_CHARGER_CTRL_REG_PRE_CHARGE_MODE_Pos |
+            1U << CHARGER_CHARGER_CTRL_REG_CHARGE_LOOP_HOLD_Pos |
+            (MYNEWT_VAL(DA1469X_CHARGER_TBAT_MONITOR_MODE)) <<
+                CHARGER_CHARGER_CTRL_REG_TBAT_MONITOR_MODE_Pos |
+            1U << CHARGER_CHARGER_CTRL_REG_CHARGE_TIMERS_HALT_ENABLE_Pos |
+            (MYNEWT_VAL(DA1469X_CHARGER_NTC_ENABLE)) <<
+                CHARGER_CHARGER_CTRL_REG_TBAT_PROT_ENABLE_Pos |
+            1U << CHARGER_CHARGER_CTRL_REG_TDIE_PROT_ENABLE_Pos |
+            1U << CHARGER_CHARGER_CTRL_REG_CHARGER_RESUME_Pos,
+    .ctrl_valid = 1,
+    .voltage_param =
+        DA1469X_ENCODE_V(MYNEWT_VAL(DA1469X_CHARGER_V_OVP)) <<
+            CHARGER_CHARGER_VOLTAGE_PARAM_REG_V_OVP_Pos |
+        DA1469X_ENCODE_V(MYNEWT_VAL(DA1469X_CHARGER_V_REPLENISH)) <<
+            CHARGER_CHARGER_VOLTAGE_PARAM_REG_V_REPLENISH_Pos |
+        DA1469X_ENCODE_V(MYNEWT_VAL(DA1469X_CHARGER_V_PRECHARGE)) <<
+            CHARGER_CHARGER_VOLTAGE_PARAM_REG_V_PRECHARGE_Pos |
+        DA1469X_ENCODE_V(MYNEWT_VAL(DA1469X_CHARGER_V_CHARGE)) <<
+            CHARGER_CHARGER_VOLTAGE_PARAM_REG_V_CHARGE_Pos,
+    .voltage_param_valid = 1,
+    .current_param =
+        DA1469X_ENCODE_PRECHG_I(MYNEWT_VAL(DA1469X_CHARGER_I_PRECHARGE)) |
+        DA1469X_ENCODE_CHG_I(MYNEWT_VAL(DA1469X_CHARGER_I_CHARGE)) |
+        DA1469X_ENCODE_EOC_I(MYNEWT_VAL(DA1469X_CHARGER_I_END_OF_CHARGE)),
+    .current_param_valid = 1,
+};
+#endif
+
+void
+da1469x_periph_create_charger(void)
+{
+#if MYNEWT_VAL(CHARGER)
+    int rc;
+
+    rc = da1469x_charger_create(&da1469x_charger_dev, "charger", &cfg);
+
+    assert(rc == 0);
+#endif
+}
+
 void
 da1469x_periph_create(void)
 {
@@ -403,4 +472,5 @@ da1469x_periph_create(void)
     da1469x_periph_create_uart();
     da1469x_periph_create_i2c();
     da1469x_periph_create_spi();
+    da1469x_periph_create_charger();
 }

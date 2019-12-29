@@ -84,10 +84,15 @@ typedef void (*os_task_func_t)(void *);
  * Structure containing information about a running task
  */
 struct os_task {
+    /*
+     * t_stackptr and t_stackbottom fields may be accessed directly from
+     * assembly code and should never be moved in this structure.
+     */
+
     /** Current stack pointer for this task */
     os_stack_t *t_stackptr;
-    /** Pointer to top of this task's stack */
-    os_stack_t *t_stacktop;
+    /** Pointer to bottom of this task's stack */
+    os_stack_t *t_stackbottom;
     /** Size of this task's stack */
     uint16_t t_stacksize;
     /** Task ID */
@@ -167,6 +172,15 @@ int os_task_init(struct os_task *, const char *, os_task_func_t, void *,
 int os_task_remove(struct os_task *t);
 
 /**
+ * Return pointer to top of stack for given task
+ *
+ * @param t The task
+ *
+ * @return pointer to top of stack
+ */
+os_stack_t *os_task_stacktop_get(struct os_task *t);
+
+/**
  * Return the number of tasks initialized.
  *
  * @return number of tasks initialized
@@ -231,6 +245,23 @@ struct os_task_info {
  */
 struct os_task *os_task_info_get_next(const struct os_task *,
         struct os_task_info *);
+
+/**
+ * Get following info about specified task
+ * - Priority
+ * - Task ID
+ * - State (READY, SLEEP)
+ * - Total Stack Usage
+ * - Stack Size
+ * - Context Switch Count
+ * - Runtime
+ * - Last & Next Sanity checkin
+ * - Task Name
+ *
+ *  @param task The task to get info about
+ *  @param oti  The OS task info structure to fill out.
+ */
+void os_task_info_get(const struct os_task *task, struct os_task_info *oti);
 
 #ifdef __cplusplus
 }

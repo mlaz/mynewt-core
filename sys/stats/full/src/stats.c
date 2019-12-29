@@ -77,7 +77,7 @@ STATS_NAME_START(stats)
     STATS_NAME(stats, num_registered)
 STATS_NAME_END(stats)
 
-STAILQ_HEAD(, stats_hdr) g_stats_registry =
+struct stats_registry_list g_stats_registry =
     STAILQ_HEAD_INITIALIZER(g_stats_registry);
 
 static size_t
@@ -115,7 +115,7 @@ stats_register_internal(const char *name, struct stats_hdr *shdr)
      * is already registered.
      */
     STAILQ_FOREACH(cur, &g_stats_registry, s_next) {
-        if (!strcmp(cur->s_name, name)) {
+        if (!strcmp(cur->s_name, name) || cur == shdr) {
             rc = -1;
             goto err;
         }
@@ -156,13 +156,6 @@ stats_module_init_internal(void)
     if (rc) {
         return rc;
     }
-
-#if MYNEWT_VAL(STATS_NEWTMGR)
-    rc = stats_nmgr_register_group();
-    if (rc) {
-        return rc;
-    }
-#endif
 
 #if MYNEWT_VAL(STATS_CLI)
     rc = stats_shell_register();

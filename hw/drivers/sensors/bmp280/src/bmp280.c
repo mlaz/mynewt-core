@@ -71,9 +71,6 @@ STATS_NAME_END(bmp280_stat_section)
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(bmp280_stat_section) g_bmp280stats;
 
-#define BMP280_LOG(lvl_, ...) \
-    MODLOG_ ## lvl_(MYNEWT_VAL(BMP280_LOG_MODULE), __VA_ARGS__)
-
 /* Exports for the sensor API */
 static int bmp280_sensor_read(struct sensor *, sensor_type_t,
         sensor_data_func_t, void *, uint32_t);
@@ -86,6 +83,14 @@ static const struct sensor_driver g_bmp280_sensor_driver = {
     .sd_get_config = bmp280_sensor_get_config,
     .sd_set_config = bmp280_sensor_set_config,
 };
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+static bool
+bmp280_uses_spi(struct sensor_itf *itf)
+{
+    return ((struct bmp280 *)(itf->si_dev))->node_is_spi;
+}
+#endif
 
 static int
 bmp280_default_cfg(struct bmp280_cfg *cfg)
@@ -208,7 +213,7 @@ bmp280_compensate_temperature(int32_t rawtemp, struct bmp280_pdd *pdd)
     double var1, var2, comptemp;
 
     if (rawtemp == 0x80000) {
-        BMP280_LOG(ERROR, "Invalid temp data\n");
+        BMP280_LOG_ERROR("Invalid temp data\n");
         STATS_INC(g_bmp280stats, invalid_data_errors);
         return NAN;
     }
@@ -243,7 +248,7 @@ bmp280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     int32_t temp;
 
     if (rawpress == 0x80000) {
-        BMP280_LOG(ERROR, "Invalid press data\n");
+        BMP280_LOG_ERROR("Invalid press data\n");
         STATS_INC(g_bmp280stats, invalid_data_errors);
         return NAN;
     }
@@ -294,7 +299,7 @@ bmp280_compensate_temperature(int32_t rawtemp, struct bmp280_pdd *pdd)
     int32_t var1, var2, comptemp;
 
     if (rawtemp == 0x80000) {
-        BMP280_LOG(ERROR, "Invalid temp data\n");
+        BMP280_LOG_ERROR("Invalid temp data\n");
         STATS_INC(g_bmp280stats, invalid_data_errors);
         return NAN;
     }
@@ -330,7 +335,7 @@ bmp280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     int32_t temp;
 
     if (rawpress == 0x80000) {
-        BMP280_LOG(ERROR, "Invalid pressure data\n");
+        BMP280_LOG_ERROR("Invalid pressure data\n");
         STATS_INC(g_bmp280stats, invalid_data_errors);
         return NAN;
     }
@@ -717,7 +722,7 @@ bmp280_i2c_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *buffer,
     rc = i2cn_master_write(itf->si_num, &data_struct, MYNEWT_VAL(BMP280_I2C_TIMEOUT_TICKS), 0,
                            MYNEWT_VAL(BMP280_I2C_RETRIES));
     if (rc) {
-        BMP280_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+        BMP280_LOG_ERROR("I2C access failed at address 0x%02X\n",
                    data_struct.address);
         STATS_INC(g_bmp280stats, write_errors);
         goto err;
@@ -729,7 +734,7 @@ bmp280_i2c_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *buffer,
     rc = i2cn_master_read(itf->si_num, &data_struct, MYNEWT_VAL(BMP280_I2C_TIMEOUT_TICKS), 1,
                           MYNEWT_VAL(BMP280_I2C_RETRIES));
     if (rc) {
-        BMP280_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+        BMP280_LOG_ERROR("Failed to read from 0x%02X:0x%02X\n",
                    data_struct.address, addr);
         STATS_INC(g_bmp280stats, read_errors);
         goto err;
@@ -769,7 +774,7 @@ bmp280_spi_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
     retval = hal_spi_tx_val(itf->si_num, addr | BMP280_SPI_READ_CMD_BIT);
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        BMP280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        BMP280_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bmp280stats, read_errors);
         goto err;
@@ -780,7 +785,7 @@ bmp280_spi_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
         retval = hal_spi_tx_val(itf->si_num, 0);
         if (retval == 0xFFFF) {
             rc = SYS_EINVAL;
-            BMP280_LOG(ERROR, "SPI_%u read failed addr:0x%02X\n",
+            BMP280_LOG_ERROR("SPI_%u read failed addr:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bmp280stats, read_errors);
             goto err;
@@ -832,7 +837,7 @@ bmp280_i2c_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *buffer,
                                MYNEWT_VAL(BMP280_I2C_TIMEOUT_TICKS), 1,
                                MYNEWT_VAL(BMP280_I2C_RETRIES));
         if (rc) {
-            BMP280_LOG(ERROR, "Failed to write 0x%02X:0x%02X\n",
+            BMP280_LOG_ERROR("Failed to write 0x%02X:0x%02X\n",
                        data_struct.address, addr);
             STATS_INC(g_bmp280stats, write_errors);
             goto err;
@@ -869,7 +874,7 @@ bmp280_spi_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
     rc = hal_spi_tx_val(itf->si_num, addr & ~BMP280_SPI_READ_CMD_BIT);
     if (rc == 0xFFFF) {
         rc = SYS_EINVAL;
-        BMP280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        BMP280_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bmp280stats, write_errors);
         goto err;
@@ -880,7 +885,7 @@ bmp280_spi_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
         rc = hal_spi_tx_val(itf->si_num, payload[i]);
         if (rc == 0xFFFF) {
             rc = SYS_EINVAL;
-            BMP280_LOG(ERROR, "SPI_%u write failed addr:0x%02X\n",
+            BMP280_LOG_ERROR("SPI_%u write failed addr:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bmp280stats, write_errors);
             goto err;
@@ -919,6 +924,9 @@ bmp280_writelen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
 #if MYNEWT_VAL(BUS_DRIVER_PRESENT)
     uint8_t data[2] = { addr };
 
+    if (bmp280_uses_spi(itf)) {
+        data[0] &= ~BMP280_SPI_READ_CMD_BIT;
+    }
     do {
         data[1] = *(payload++);
         rc = bus_node_simple_write(itf->si_dev, data, 2);
@@ -1064,7 +1072,7 @@ bmp280_get_iir(struct sensor_itf *itf, uint8_t *iir)
         goto err;
     }
 
-    *iir = ((tmp & BMP280_REG_CONFIG_FILTER) >> 5);
+    *iir = (tmp & BMP280_REG_CONFIG_FILTER) >> 2;
 
     return 0;
 err:
@@ -1089,7 +1097,8 @@ bmp280_set_iir(struct sensor_itf *itf, uint8_t iir)
         goto err;
     }
 
-    iir = cfg | ((iir << 5) & BMP280_REG_CONFIG_FILTER);
+    iir = (cfg & ~BMP280_REG_CONFIG_FILTER) |
+          ((iir << 2) & BMP280_REG_CONFIG_FILTER);
 
     rc = bmp280_writelen(itf, BMP280_REG_ADDR_CONFIG, &iir, 1);
     if (rc) {
@@ -1144,7 +1153,8 @@ bmp280_set_mode(struct sensor_itf *itf, uint8_t mode)
         goto err;
     }
 
-    cfg = cfg | (mode & BMP280_REG_CTRL_MEAS_MODE);
+    cfg = (cfg & ~BMP280_REG_CTRL_MEAS_MODE) |
+          (mode & BMP280_REG_CTRL_MEAS_MODE);
 
     rc = bmp280_writelen(itf, BMP280_REG_ADDR_CTRL_MEAS, &cfg, 1);
     if (rc) {
@@ -1205,24 +1215,29 @@ bmp280_set_oversample(struct sensor_itf *itf, sensor_type_t type,
     int rc;
     uint8_t cfg;
 
-    if (type & SENSOR_TYPE_AMBIENT_TEMPERATURE || type & SENSOR_TYPE_PRESSURE) {
+    if (type & (SENSOR_TYPE_AMBIENT_TEMPERATURE | SENSOR_TYPE_PRESSURE)) {
         rc = bmp280_readlen(itf, BMP280_REG_ADDR_CTRL_MEAS, &cfg, 1);
         if (rc) {
             goto err;
         }
 
         if (type & SENSOR_TYPE_AMBIENT_TEMPERATURE) {
-            cfg = cfg | ((oversample << 5) & BMP280_REG_CTRL_MEAS_TOVER);
+            cfg = (cfg & ~BMP280_REG_CTRL_MEAS_TOVER) |
+                  ((oversample << 5) & BMP280_REG_CTRL_MEAS_TOVER);
         }
 
         if (type & SENSOR_TYPE_PRESSURE) {
-            cfg = cfg | ((oversample << 2) & BMP280_REG_CTRL_MEAS_POVER);
+            cfg = (cfg & ~BMP280_REG_CTRL_MEAS_POVER) |
+                  ((oversample << 2) & BMP280_REG_CTRL_MEAS_POVER);
         }
 
         rc = bmp280_writelen(itf, BMP280_REG_ADDR_CTRL_MEAS, &cfg, 1);
         if (rc) {
             goto err;
         }
+    } else {
+        rc = EINVAL;
+        goto err;
     }
 
     return 0;
@@ -1274,7 +1289,8 @@ bmp280_set_sby_duration(struct sensor_itf *itf, uint8_t dur)
         goto err;
     }
 
-    cfg = cfg | ((dur << 5) & BMP280_REG_CONFIG_STANDBY);
+    cfg = (cfg & ~BMP280_REG_CONFIG_STANDBY) |
+          ((dur << 5) & BMP280_REG_CONFIG_STANDBY);
 
     rc = bmp280_writelen(itf, BMP280_REG_ADDR_CONFIG, &cfg, 1);
     if (rc) {
@@ -1367,6 +1383,9 @@ bmp280_create_i2c_sensor_dev(struct bus_i2c_node *node, const char *name,
     };
     int rc;
 
+    ((struct bmp280 *)(node))->node_is_spi = false;
+
+    sensor_itf->si_dev = &node->bnode.odev;
     bus_node_set_callbacks((struct os_dev *)node, &cbs);
 
     rc = bus_i2c_node_create(name, node, i2c_cfg, sensor_itf);
@@ -1384,6 +1403,9 @@ bmp280_create_spi_sensor_dev(struct bus_spi_node *node, const char *name,
     };
     int rc;
 
+    ((struct bmp280 *)(node))->node_is_spi = true;
+
+    sensor_itf->si_dev = &node->bnode.odev;
     bus_node_set_callbacks((struct os_dev *)node, &cbs);
 
     rc = bus_spi_node_create(name, node, spi_cfg, sensor_itf);

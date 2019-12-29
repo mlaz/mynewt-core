@@ -64,9 +64,6 @@ STATS_NAME_END(bme280_stat_section)
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(bme280_stat_section) g_bme280stats;
 
-#define BME280_LOG(lvl_, ...) \
-    MODLOG_ ## lvl_(MYNEWT_VAL(BME280_LOG_MODULE), __VA_ARGS__)
-
 /* Exports for the sensor API */
 static int bme280_sensor_read(struct sensor *, sensor_type_t,
         sensor_data_func_t, void *, uint32_t);
@@ -200,7 +197,7 @@ bme280_compensate_temperature(int32_t rawtemp, struct bme280_pdd *pdd)
     double var1, var2, comptemp;
 
     if (rawtemp == 0x80000) {
-        BME280_LOG(ERROR, "Invalid temp data\n");
+        BME280_LOG_ERROR("Invalid temp data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -235,7 +232,7 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     int32_t temp;
 
     if (rawpress == 0x80000) {
-        BME280_LOG(ERROR, "Invalid press data\n");
+        BME280_LOG_ERROR("Invalid press data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -286,7 +283,7 @@ bme280_compensate_humidity(struct sensor_itf *itf, int32_t rawhumid,
     int32_t temp;
 
     if (rawhumid == 0x8000) {
-        BME280_LOG(ERROR, "Invalid humidity data\n");
+        BME280_LOG_ERROR("Invalid humidity data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -330,7 +327,7 @@ bme280_compensate_temperature(int32_t rawtemp, struct bme280_pdd *pdd)
     int32_t var1, var2, comptemp;
 
     if (rawtemp == 0x800000) {
-        BME280_LOG(ERROR, "Invalid temp data\n");
+        BME280_LOG_ERROR("Invalid temp data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -365,7 +362,7 @@ bme280_compensate_pressure(struct sensor_itf *itf, int32_t rawpress,
     int32_t temp;
 
     if (rawpress == 0x80000) {
-        BME280_LOG(ERROR, "Invalid pressure data\n");
+        BME280_LOG_ERROR("Invalid pressure data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -416,7 +413,7 @@ bme280_compensate_humidity(struct sensor_itf *itf, uint32_t rawhumid,
     int32_t tmp32;
 
     if (rawhumid == 0x8000) {
-        BME280_LOG(ERROR, "Invalid humidity data\n");
+        BME280_LOG_ERROR("Invalid humidity data\n");
         STATS_INC(g_bme280stats, invalid_data_errors);
         return NAN;
     }
@@ -852,7 +849,7 @@ bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
     retval = hal_spi_tx_val(itf->si_num, addr | BME280_SPI_READ_CMD_BIT);
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        BME280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        BME280_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bme280stats, read_errors);
         goto err;
@@ -863,7 +860,7 @@ bme280_readlen(struct sensor_itf *itf, uint8_t addr, uint8_t *payload,
         retval = hal_spi_tx_val(itf->si_num, 0);
         if (retval == 0xFFFF) {
             rc = SYS_EINVAL;
-            BME280_LOG(ERROR, "SPI_%u read failed addr:0x%02X\n",
+            BME280_LOG_ERROR("SPI_%u read failed addr:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bme280stats, read_errors);
             goto err;
@@ -925,7 +922,7 @@ done:
     rc = hal_spi_tx_val(itf->si_num, addr & ~BME280_SPI_READ_CMD_BIT);
     if (rc == 0xFFFF) {
         rc = SYS_EINVAL;
-        BME280_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        BME280_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                    itf->si_num, addr);
         STATS_INC(g_bme280stats, write_errors);
         goto err;
@@ -936,7 +933,7 @@ done:
         rc = hal_spi_tx_val(itf->si_num, payload[i]);
         if (rc == 0xFFFF) {
             rc = SYS_EINVAL;
-            BME280_LOG(ERROR, "SPI_%u write failed addr:0x%02X:0x%02X\n",
+            BME280_LOG_ERROR("SPI_%u write failed addr:0x%02X:0x%02X\n",
                        itf->si_num, addr);
             STATS_INC(g_bme280stats, write_errors);
             goto err;
@@ -1391,6 +1388,7 @@ bme280_create_i2c_sensor_dev(struct bus_i2c_node *node, const char *name,
     };
     int rc;
 
+    sensor_itf->si_dev = &node->bnode.odev;
     bus_node_set_callbacks((struct os_dev *)node, &cbs);
 
     rc = bus_i2c_node_create(name, node, i2c_cfg, sensor_itf);
@@ -1408,6 +1406,7 @@ bme280_create_spi_sensor_dev(struct bus_spi_node *node, const char *name,
     };
     int rc;
 
+    sensor_itf->si_dev = &node->bnode.odev;
     bus_node_set_callbacks((struct os_dev *)node, &cbs);
 
     rc = bus_spi_node_create(name, node, spi_cfg, sensor_itf);

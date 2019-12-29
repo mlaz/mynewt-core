@@ -32,35 +32,6 @@
  *
  */
 
-/*
- * GPIO pin mapping
- *
- * The logical GPIO pin numbers (0 to N) are mapped to ports in the following
- * manner:
- *  pins 0 - 31: Port 0
- *  pins 32 - 48: Port 1.
- *
- *  The nrf52832 has only one port with 32 pins. The nrf52840 has 48 pins and
- *  uses two ports.
- *
- *  NOTE: in order to save code space, there is no checking done to see if the
- *  user specifies a pin that is not used by the processor. If an invalid pin
- *  number is used unexpected and/or erroneous behavior will result.
- */
-#if defined(NRF52832_XXAA) || defined(NRF52810_XXAA)
-#define HAL_GPIO_INDEX(pin)     (pin)
-#define HAL_GPIO_PORT(pin)      (NRF_P0)
-#define HAL_GPIO_MASK(pin)      (1 << pin)
-#define HAL_GPIOTE_PIN_MASK     GPIOTE_CONFIG_PSEL_Msk
-#endif
-
-#ifdef NRF52840_XXAA
-#define HAL_GPIO_INDEX(pin)     ((pin) & 0x1F)
-#define HAL_GPIO_PORT(pin)      ((pin) > 31 ? NRF_P1 : NRF_P0)
-#define HAL_GPIO_MASK(pin)      (1 << HAL_GPIO_INDEX(pin))
-#define HAL_GPIOTE_PIN_MASK     (0x3FUL << GPIOTE_CONFIG_PSEL_Pos)
-#endif
-
 /* GPIO interrupts */
 #define HAL_GPIO_MAX_IRQ        8
 
@@ -405,11 +376,14 @@ hal_gpio_irq_init(int pin, hal_gpio_irq_handler_t handler, void *arg,
                   hal_gpio_irq_trig_t trig, hal_gpio_pull_t pull)
 {
     uint32_t conf;
-    int i;
+    int i, sr;
+
+    __HAL_DISABLE_INTERRUPTS(sr);
 
     hal_gpio_irq_setup();
     i = hal_gpio_find_empty_slot();
     if (i < 0) {
+        __HAL_ENABLE_INTERRUPTS(sr);
         return -1;
     }
     hal_gpio_init_in(pin, pull);
@@ -430,6 +404,7 @@ hal_gpio_irq_init(int pin, hal_gpio_irq_handler_t handler, void *arg,
         break;
     default:
         hal_gpio_irqs[i].sense_trig = HAL_GPIO_SENSE_TRIG_NONE;
+        __HAL_ENABLE_INTERRUPTS(sr);
         return -1;
     }
 #else
@@ -444,6 +419,7 @@ hal_gpio_irq_init(int pin, hal_gpio_irq_handler_t handler, void *arg,
         conf = GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos;
         break;
     default:
+        __HAL_ENABLE_INTERRUPTS(sr);
         return -1;
     }
 
@@ -455,6 +431,8 @@ hal_gpio_irq_init(int pin, hal_gpio_irq_handler_t handler, void *arg,
 
     hal_gpio_irqs[i].func = handler;
     hal_gpio_irqs[i].arg = arg;
+
+    __HAL_ENABLE_INTERRUPTS(sr);
 
     return 0;
 }
@@ -471,10 +449,13 @@ hal_gpio_irq_init(int pin, hal_gpio_irq_handler_t handler, void *arg,
 void
 hal_gpio_irq_release(int pin)
 {
-    int i;
+    int i, sr;
+
+    __HAL_DISABLE_INTERRUPTS(sr);
 
     i = hal_gpio_find_pin(pin);
     if (i < 0) {
+        __HAL_ENABLE_INTERRUPTS(sr);
         return;
     }
     hal_gpio_irq_disable(pin);
@@ -488,6 +469,8 @@ hal_gpio_irq_release(int pin)
 
     hal_gpio_irqs[i].arg = NULL;
     hal_gpio_irqs[i].func = NULL;
+
+    __HAL_ENABLE_INTERRUPTS(sr);
 }
 
 /**
@@ -504,10 +487,13 @@ hal_gpio_irq_enable(int pin)
     NRF_GPIO_Type *nrf_gpio;
     int pin_index;
 #endif
-    int i;
+    int i, sr;
+
+    __HAL_DISABLE_INTERRUPTS(sr);
 
     i = hal_gpio_find_pin(pin);
     if (i < 0) {
+        __HAL_ENABLE_INTERRUPTS(sr);
         return;
     }
 
@@ -532,6 +518,8 @@ hal_gpio_irq_enable(int pin)
     NRF_GPIOTE->EVENTS_IN[i] = 0;
     NRF_GPIOTE->INTENSET = 1 << i;
 #endif
+
+    __HAL_ENABLE_INTERRUPTS(sr);
 }
 
 /**
@@ -548,10 +536,13 @@ hal_gpio_irq_disable(int pin)
     int pin_index;
     bool sense_enabled = false;
 #endif
-    int i;
+    int i, sr;
+
+    __HAL_DISABLE_INTERRUPTS(sr);
 
     i = hal_gpio_find_pin(pin);
     if (i < 0) {
+        __HAL_ENABLE_INTERRUPTS(sr);
         return;
     }
 
@@ -574,4 +565,5 @@ hal_gpio_irq_disable(int pin)
 #else
     NRF_GPIOTE->INTENCLR = 1 << i;
 #endif
+    __HAL_ENABLE_INTERRUPTS(sr);
 }

@@ -59,9 +59,6 @@ STATS_NAME_END(tcs34725_stat_section)
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(tcs34725_stat_section) g_tcs34725stats;
 
-#define TCS34725_LOG(lvl_, ...) \
-    MODLOG_ ## lvl_(MYNEWT_VAL(TCS34725_LOG_MODULE), __VA_ARGS__)
-
 /* Exports for the sensor API */
 static int tcs34725_sensor_read(struct sensor *, sensor_type_t,
         sensor_data_func_t, void *, uint32_t);
@@ -88,6 +85,9 @@ tcs34725_write8(struct sensor_itf *itf, uint8_t reg, uint32_t value)
     int rc;
     uint8_t payload[2] = { reg | TCS34725_COMMAND_BIT, value & 0xFF };
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    rc = bus_node_simple_write(itf->si_dev, payload, 2);
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 2,
@@ -102,13 +102,14 @@ tcs34725_write8(struct sensor_itf *itf, uint8_t reg, uint32_t value)
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(TCS34725_I2C_RETRIES));
     if (rc) {
-        TCS34725_LOG(ERROR,
+        TCS34725_LOG_ERROR(
                      "Failed to write to 0x%02X:0x%02X with value 0x%02lX\n",
                      data_struct.address, reg, value);
         STATS_INC(g_tcs34725stats, errors);
     }
 
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -126,6 +127,11 @@ int
 tcs34725_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
 {
     int rc;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    reg |= TCS34725_COMMAND_BIT;
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, value, 1);
+#else
     uint8_t payload;
 
     struct hal_i2c_master_data data_struct = {
@@ -144,7 +150,7 @@ tcs34725_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(TCS34725_I2C_RETRIES));
     if (rc) {
-        TCS34725_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+        TCS34725_LOG_ERROR("I2C access failed at address 0x%02X\n",
                      data_struct.address);
         STATS_INC(g_tcs34725stats, errors);
         goto err;
@@ -156,13 +162,14 @@ tcs34725_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
                           MYNEWT_VAL(TCS34725_I2C_RETRIES));
     *value = payload;
     if (rc) {
-        TCS34725_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+        TCS34725_LOG_ERROR("Failed to read from 0x%02X:0x%02X\n",
                      data_struct.address, reg);
         STATS_INC(g_tcs34725stats, errors);
     }
 
 err:
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -180,6 +187,11 @@ int
 tcs34725_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t len)
 {
     int rc;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    reg |= TCS34725_COMMAND_BIT;
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, buffer, len);
+#else
     uint8_t payload[9] = { reg | TCS34725_COMMAND_BIT, 0, 0, 0, 0, 0, 0, 0, 0};
 
     struct hal_i2c_master_data data_struct = {
@@ -200,7 +212,7 @@ tcs34725_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t l
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(TCS34725_I2C_RETRIES));
     if (rc) {
-        TCS34725_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+        TCS34725_LOG_ERROR("I2C access failed at address 0x%02X\n",
                      data_struct.address);
         STATS_INC(g_tcs34725stats, errors);
         goto err;
@@ -213,7 +225,7 @@ tcs34725_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t l
                           MYNEWT_VAL(TCS34725_I2C_RETRIES));
 
     if (rc) {
-        TCS34725_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+        TCS34725_LOG_ERROR("Failed to read from 0x%02X:0x%02X\n",
                      data_struct.address, reg);
         STATS_INC(g_tcs34725stats, errors);
         goto err;
@@ -224,6 +236,7 @@ tcs34725_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t l
 
 err:
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -243,6 +256,10 @@ tcs34725_writelen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t 
     int rc;
     uint8_t payload[9] = { reg, 0, 0, 0, 0, 0, 0, 0, 0};
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    memcpy(&payload[1], buffer, len);
+    rc = bus_node_simple_write(itf->si_dev, payload, len + 1);
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 1,
@@ -265,7 +282,7 @@ tcs34725_writelen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t 
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(TCS34725_I2C_RETRIES));
     if (rc) {
-        TCS34725_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+        TCS34725_LOG_ERROR("I2C access failed at address 0x%02X\n",
                      data_struct.address);
         STATS_INC(g_tcs34725stats, errors);
         goto err;
@@ -277,7 +294,7 @@ tcs34725_writelen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t 
                            len, MYNEWT_VAL(TCS34725_I2C_RETRIES));
 
     if (rc) {
-        TCS34725_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+        TCS34725_LOG_ERROR("Failed to read from 0x%02X:0x%02X\n",
                      data_struct.address, reg);
         STATS_INC(g_tcs34725stats, errors);
         goto err;
@@ -285,6 +302,7 @@ tcs34725_writelen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_t 
 
 err:
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -499,7 +517,7 @@ tcs34725_set_gain(struct sensor_itf *itf, uint8_t gain)
     int rc;
 
     if (gain > TCS34725_GAIN_60X) {
-        TCS34725_LOG(ERROR, "Invalid gain value\n");
+        TCS34725_LOG_ERROR("Invalid gain value\n");
         rc = SYS_EINVAL;
         goto err;
     }
@@ -974,6 +992,9 @@ tcs34725_clear_interrupt(struct sensor_itf *itf)
     int rc;
     uint8_t payload = TCS34725_COMMAND_BIT | TCS34725_CMD_TYPE | TCS34725_CMD_ADDR;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    rc = bus_node_simple_write(itf->si_dev, &payload, 1);
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 0,
@@ -988,6 +1009,7 @@ tcs34725_clear_interrupt(struct sensor_itf *itf)
 
     return 0;
 err:
+#endif
     return rc;
 }
 
@@ -1068,3 +1090,31 @@ tcs34725_sensor_get_config(struct sensor *sensor, sensor_type_t type,
 err:
     return (rc);
 }
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+static void
+init_node_cb(struct bus_node *bnode, void *arg)
+{
+    struct sensor_itf *itf = arg;
+
+    tcs34725_init((struct os_dev *)bnode, itf);
+}
+
+int
+tcs34725_create_i2c_sensor_dev(struct bus_i2c_node *node, const char *name,
+                               const struct bus_i2c_node_cfg *i2c_cfg,
+                               struct sensor_itf *sensor_itf)
+{
+    struct bus_node_callbacks cbs = {
+        .init = init_node_cb,
+    };
+    int rc;
+
+    sensor_itf->si_dev = &node->bnode.odev;
+    bus_node_set_callbacks((struct os_dev *)node, &cbs);
+
+    rc = bus_i2c_node_create(name, node, i2c_cfg, sensor_itf);
+
+    return rc;
+}
+#endif

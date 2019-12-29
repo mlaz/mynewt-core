@@ -29,7 +29,7 @@
 #include "trng/trng.h"
 #include "trng_stm32/trng_stm32.h"
 #endif
-#if MYNEWT_VAL(UART_0)
+#if MYNEWT_VAL(UART_0) || MYNEWT_VAL(UART_1) || MYNEWT_VAL(UART_2)
 #include "uart/uart.h"
 #include "uart_hal/uart_hal.h"
 #endif
@@ -69,7 +69,7 @@ const uint32_t stm32_flash_sectors[] = {
 };
 
 #define SZ ARRAY_SIZE(stm32_flash_sectors)
-_Static_assert(MYNEWT_VAL(STM32_FLASH_NUM_AREAS) == SZ,
+static_assert(MYNEWT_VAL(STM32_FLASH_NUM_AREAS) + 1 == SZ,
         "STM32_FLASH_NUM_AREAS does not match flash sectors");
 
 #if MYNEWT_VAL(TRNG)
@@ -343,7 +343,7 @@ static const struct stm32_uart_cfg uart_cfg0 = {
 #if MYNEWT_VAL(UART_1)
 static const struct stm32_uart_cfg uart_cfg1 = {
     .suc_uart = USART2,
-    .suc_rcc_reg = &RCC->APB2ENR,
+    .suc_rcc_reg = &RCC->APB1ENR,
     .suc_rcc_dev = RCC_APB1ENR_USART2EN,
     .suc_pin_tx = MYNEWT_VAL(UART_1_TX),
     .suc_pin_rx = MYNEWT_VAL(UART_1_RX),
@@ -356,7 +356,7 @@ static const struct stm32_uart_cfg uart_cfg1 = {
 #if MYNEWT_VAL(UART_2)
 static const struct stm32_uart_cfg uart_cfg2 = {
     .suc_uart = USART3,
-    .suc_rcc_reg = &RCC->APB2ENR,
+    .suc_rcc_reg = &RCC->APB1ENR,
     .suc_rcc_dev = RCC_APB1ENR_USART3EN,
     .suc_pin_tx = MYNEWT_VAL(UART_2_TX),
     .suc_pin_rx = MYNEWT_VAL(UART_2_RX),

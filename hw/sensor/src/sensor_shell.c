@@ -108,6 +108,8 @@ sensor_cmd_display_type(char **argv)
     struct sensor *sensor;
     unsigned int type;
 
+    rc = 0;
+
     /* Look up sensor by name */
     sensor = sensor_mgr_find_next_bydevname(argv[2], NULL);
     if (!sensor) {
@@ -489,6 +491,10 @@ sensor_cmd_read(char **argv, int argc)
         goto usage;
     }
 
+    g_spd.spd_nsamples = 0;
+    g_spd.spd_poll_itvl = 0;
+    g_spd.spd_poll_duration = 0;
+
     sensor_name = argv[0];
     type = strtol(argv[1], NULL, 0);
 
@@ -546,6 +552,7 @@ sensor_cmd_read(char **argv, int argc)
     g_spd.spd_sensor_type = type;
 
     /* Start 1st read immediately */
+    g_spd.spd_read_next_msecs_off = 0;
     g_spd.spd_read_start_ticks = os_cputime_get32();
     sensor_shell_read_timer_cb(NULL);
 
@@ -606,6 +613,144 @@ static struct sensor_notifier wakeup = {
 };
 
 static int
+sensor_free_fall_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("free fall happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier free_fall = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_FREE_FALL,
+    .sn_func = sensor_free_fall_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_CHANGE,
+    .sn_func = sensor_orient_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_sleep_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("sleep happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier sensor_sleep = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_SLEEP,
+    .sn_func = sensor_sleep_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_xl_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient x l change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_xl_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_X_L_CHANGE,
+    .sn_func = sensor_orient_xl_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_yl_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient y l change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_yl_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_Y_L_CHANGE,
+    .sn_func = sensor_orient_yl_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_zl_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient z l change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_zl_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_Z_L_CHANGE,
+    .sn_func = sensor_orient_zl_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_xh_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient x h change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_xh_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_X_H_CHANGE,
+    .sn_func = sensor_orient_xh_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_yh_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient y h change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_yh_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_Y_H_CHANGE,
+    .sn_func = sensor_orient_yh_change_notif,
+    .sn_arg = NULL,
+};
+
+static int
+sensor_orient_zh_change_notif(struct sensor *sensor, void *data,
+                  sensor_event_type_t type)
+{
+    console_printf("orient z h change happend\n");
+
+    return 0;
+};
+
+static struct sensor_notifier orient_zh_change = {
+    .sn_sensor_event_type = SENSOR_EVENT_TYPE_ORIENT_Z_H_CHANGE,
+    .sn_func = sensor_orient_zh_change_notif,
+    .sn_arg = NULL,
+};
+
+
+
+
+static int
 sensor_cmd_notify(char *name, bool on, char *type_string)
 {
     struct sensor *sensor;
@@ -624,6 +769,24 @@ sensor_cmd_notify(char *name, bool on, char *type_string)
         type = SENSOR_EVENT_TYPE_DOUBLE_TAP;
     } else if (!strcmp(type_string, "wakeup")) {
         type = SENSOR_EVENT_TYPE_WAKEUP;
+    } else if (!strcmp(type_string, "freefall")) {
+        type = SENSOR_EVENT_TYPE_FREE_FALL;
+    } else if (!strcmp(type_string, "orient")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_CHANGE;
+    } else if (!strcmp(type_string, "sleep")) {
+        type = SENSOR_EVENT_TYPE_SLEEP;
+    } else if (!strcmp(type_string, "orient_xl")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_X_L_CHANGE;
+    } else if (!strcmp(type_string, "orient_yl")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_Y_L_CHANGE;
+    } else if (!strcmp(type_string, "orient_zl")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_Z_L_CHANGE;
+    } else if (!strcmp(type_string, "orient_xh")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_X_H_CHANGE;
+    } else if (!strcmp(type_string, "orient_yh")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_Y_H_CHANGE;
+    } else if (!strcmp(type_string, "orient_zh")) {
+        type = SENSOR_EVENT_TYPE_ORIENT_Z_H_CHANGE;
     } else {
         return 1;
     }
@@ -647,6 +810,69 @@ sensor_cmd_notify(char *name, bool on, char *type_string)
             rc = sensor_unregister_notifier(sensor, &wakeup);
             if (rc) {
                  console_printf("Could not unregister wakeup\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_FREE_FALL) {
+            rc = sensor_unregister_notifier(sensor, &free_fall);
+            if (rc) {
+                 console_printf("Could not unregister free fall\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_SLEEP) {
+            rc = sensor_unregister_notifier(sensor, &sensor_sleep);
+            if (rc) {
+                 console_printf("Could not unregister sleep\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_X_H_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_xh_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change pos x\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_Y_H_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_yh_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change pos y\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_Z_H_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_zh_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change pos z\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_X_L_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_xl_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change neg x\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_Y_L_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_yl_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change neg y\n");
+                 goto done;
+            }
+        }
+        if (type == SENSOR_EVENT_TYPE_ORIENT_Z_L_CHANGE) {
+            rc = sensor_unregister_notifier(sensor, &orient_zl_change);
+            if (rc) {
+                 console_printf("Could not unregister orient change neg z\n");
                  goto done;
             }
         }
@@ -674,6 +900,72 @@ sensor_cmd_notify(char *name, bool on, char *type_string)
         rc = sensor_register_notifier(sensor, &wakeup);
         if (rc) {
              console_printf("Could not register wakeup\n");
+             goto done;
+        }
+    }
+
+    if (type == SENSOR_EVENT_TYPE_FREE_FALL) {
+        rc = sensor_register_notifier(sensor, &free_fall);
+        if (rc) {
+             console_printf("Could not register free fall\n");
+             goto done;
+        }
+    }
+
+    if (type == SENSOR_EVENT_TYPE_ORIENT_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_change);
+        if (rc) {
+            console_printf("Could not register orient change\n");
+            goto done;
+        }
+    }
+
+    if (type == SENSOR_EVENT_TYPE_SLEEP) {
+        rc = sensor_register_notifier(sensor, &sensor_sleep);
+        if (rc) {
+             console_printf("Could not register sleep\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_X_H_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_xh_change);
+        if (rc) {
+             console_printf("Could not register orient change pos x\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_Y_H_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_yh_change);
+        if (rc) {
+             console_printf("Could not register orient change pos y\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_Z_H_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_zh_change);
+        if (rc) {
+             console_printf("Could not register orient change pos z\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_X_L_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_xl_change);
+        if (rc) {
+             console_printf("Could not register orient change neg x\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_Y_L_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_yl_change);
+        if (rc) {
+             console_printf("Could not register orient change neg y\n");
+             goto done;
+        }
+    }
+    if (type == SENSOR_EVENT_TYPE_ORIENT_Z_L_CHANGE) {
+        rc = sensor_register_notifier(sensor, &orient_zl_change);
+        if (rc) {
+             console_printf("Could not register orient change neg z\n");
              goto done;
         }
     }
@@ -717,7 +1009,8 @@ sensor_cmd_exec(int argc, char **argv)
     } else if (!strcmp(argv[1], "notify")) {
         if (argc < 3) {
             console_printf("Too few arguments: %d\n"
-                           "Usage: sensor notify <sensor_name> <on/off> <single/double/wakeup>",
+                           "Usage: sensor notify <sensor_name> <on/off> "
+                           "<single/double/wakeup/freefall/orient/sleep/orient_xl/orient_yl/orient_zl/orient_xh/orient_yh/orient_zh>",
                            argc - 2);
             rc = SYS_EINVAL;
             goto done;
@@ -726,7 +1019,8 @@ sensor_cmd_exec(int argc, char **argv)
         rc = sensor_cmd_notify(argv[2], !strcmp(argv[3], "on"), argv[4]);
         if (rc) {
             console_printf("Too few arguments: %d\n"
-                           "Usage: sensor notify <sensor_name> <on/off> <single/double/wakeup>",
+                           "Usage: sensor notify <sensor_name> <on/off> "
+                           "<single/double/wakeup/freefall/orient/sleep/orient_xl/orient_yl/orient_zl/orient_xh/orient_yh/orient_zh>",
                            argc - 2);
            goto done;
         }

@@ -23,8 +23,36 @@ syscfg.defs:
         value: 1024
 
     UART_0:
-        description: 'Whether to enable UART0'
+        description: 'Whether to enable USART2'
         value:  1
+    UART_0_PIN_TX:
+        description: 'TX pin for USART2, PA2, PD5'
+        value: MCU_GPIO_PORTA(2)
+    UART_0_PIN_RX:
+        description: 'RX pin for USART2, PA3, PD6'
+        value: MCU_GPIO_PORTA(3)
+    UART_0_PIN_CTS:
+        description: 'CTS pin for USART2, PA0, PD3'
+        value: -1
+    UART_0_PIN_RTS:
+        description: 'RTS pin for USART2, PA1, PD4'
+        value: -1
+
+    UART_1:
+        description: 'Whether to enable USART1'
+        value:  0
+    UART_1_PIN_TX:
+        description: 'TX pin for USART1, PA9, PB6'
+        value: MCU_GPIO_PORTA(9)
+    UART_1_PIN_RX:
+        description: 'RX pin for USART1, PA10, PB7'
+        value: MCU_GPIO_PORTA(10)
+    UART_1_PIN_CTS:
+        description: 'CTS pin for USART1, PA11, PB4'
+        value: -1
+    UART_1_PIN_RTS:
+        description: 'RTS pin for USART1, PA12, PB3'
+        value: -1
 
     TIMER_0:
         description: 'Whether to enable TIMER_0'
@@ -44,3 +72,26 @@ syscfg.vals:
     NFFS_FLASH_AREA: FLASH_AREA_NFFS
     COREDUMP_FLASH_AREA: FLASH_AREA_IMAGE_1
     BOOTUTIL_MAX_IMG_SECTORS: 256
+    STM32_CLOCK_VOLTAGESCALING_CONFIG: 'PWR_REGULATOR_VOLTAGE_SCALE1'
+    STM32_CLOCK_LSI: 1
+    STM32_CLOCK_LSE: 0
+    STM32_CLOCK_LSE_BYPASS: 0
+    STM32_CLOCK_MSI: 1
+    STM32_CLOCK_MSI_CALIBRATION: 'RCC_MSICALIBRATION_DEFAULT'
+    STM32_CLOCK_MSI_CLOCK_RANGE: 'RCC_MSIRANGE_8'  # 16MHz
+    STM32_CLOCK_HSI: 0
+    STM32_CLOCK_HSI_CALIBRATION: 'RCC_HSICALIBRATION_DEFAULT'
+    STM32_CLOCK_HSE: 0
+    STM32_CLOCK_HSE_BYPASS: 0
+    STM32_CLOCK_PLL_PLLM: 1   # 16 / 1 = 16MHz
+    STM32_CLOCK_PLL_PLLN: 24  # 16 * 24 = 384MHz
+    STM32_CLOCK_PLL_PLLP: 7   # 384 / 7 = 54.85MHz
+    STM32_CLOCK_PLL_PLLR: 6   # 384 / 6 = 64MHz
+    STM32_CLOCK_PLL_PLLQ: 8   # 384 / 8 = 48MHz
+    STM32_CLOCK_AHB_DIVIDER: 'RCC_SYSCLK_DIV1'
+    STM32_CLOCK_APB1_DIVIDER: 'RCC_HCLK_DIV1'
+    STM32_CLOCK_APB2_DIVIDER: 'RCC_HCLK_DIV1'
+    STM32_FLASH_LATENCY: 'FLASH_LATENCY_3'  # max 64MHz
+    STM32_FLASH_PREFETCH_ENABLE: 0
+    STM32_INSTRUCTION_CACHE_ENABLE: 1
+    STM32_DATA_CACHE_ENABLE: 1

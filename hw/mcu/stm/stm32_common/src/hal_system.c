@@ -30,12 +30,7 @@ hal_system_reset(void)
 #endif
 
     while (1) {
-        if (hal_debugger_connected()) {
-            /*
-             * If debugger is attached, breakpoint here.
-             */
-            asm("bkpt");
-        }
+        HAL_DEBUG_BREAK();
         NVIC_SystemReset();
     }
 }
@@ -43,8 +38,11 @@ hal_system_reset(void)
 int
 hal_debugger_connected(void)
 {
-    /* FIXME */
+#if (__CORTEX_M == 0)
     return 0;
+#else
+    return CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk;
+#endif
 }
 
 uint32_t

@@ -23,7 +23,6 @@
 
 #include <adc/adc.h>
 
-#include <DA1469xAB.h>
 #include <mcu/mcu.h>
 #include <mcu/da1469x_pd.h>
 
@@ -48,16 +47,16 @@ da1469x_gpadc_resolve_pins(uint32_t ctrl, int *pin0p, int *pin1p)
         /* single-ended */
         switch (src) {
         case 0:
-            pin0 = MCU_GPIO_PORT1(9);
+            pin0 = MCU_PIN_GPADC_SEL0;
             break;
         case 1:
-            pin0 = MCU_GPIO_PORT0(25);
+            pin0 = MCU_PIN_GPADC_SEL1;
             break;
         case 2:
-            pin0 = MCU_GPIO_PORT0(8);
+            pin0 = MCU_PIN_GPADC_SEL2;
             break;
         case 3:
-            pin0 = MCU_GPIO_PORT0(9);
+            pin0 = MCU_PIN_GPADC_SEL3;
             break;
         case 4:
             /* VDDD */
@@ -78,16 +77,16 @@ da1469x_gpadc_resolve_pins(uint32_t ctrl, int *pin0p, int *pin1p)
             /* 9: VSSA */
             break;
         case 16:
-            pin0 = MCU_GPIO_PORT1(13);
+            pin0 = MCU_PIN_GPADC_SEL16;
             break;
         case 17:
-            pin0 = MCU_GPIO_PORT1(12);
+            pin0 = MCU_PIN_GPADC_SEL17;
             break;
         case 18:
-            pin0 = MCU_GPIO_PORT1(18);
+            pin0 = MCU_PIN_GPADC_SEL18;
             break;
         case 19:
-            pin0 = MCU_GPIO_PORT1(19);
+            pin0 = MCU_PIN_GPADC_SEL19;
             break;
         case 20:
             /* diff temp sensor */
@@ -99,12 +98,12 @@ da1469x_gpadc_resolve_pins(uint32_t ctrl, int *pin0p, int *pin1p)
         /* differential */
         switch (src) {
         case 0:
-            pin0 = MCU_GPIO_PORT1(9);
-            pin1 = MCU_GPIO_PORT0(25);
+            pin0 = MCU_PIN_GPADC_DIFF0_P0;
+            pin1 = MCU_PIN_GPADC_DIFF0_P1;
             break;
         case 1:
-            pin0 = MCU_GPIO_PORT0(8);
-            pin1 = MCU_GPIO_PORT0(9);
+            pin0 = MCU_PIN_GPADC_DIFF1_P0;
+            pin1 = MCU_PIN_GPADC_DIFF1_P1;
             break;
         default:
             break;
@@ -662,3 +661,30 @@ da1469x_gpadc_init(struct os_dev *odev, void *arg)
 
     return 0;
 }
+
+#if MYNEWT_VAL(GPADC_BATTERY)
+
+static struct da1469x_gpadc_dev_cfg os_bsp_gpadc_battery_cfg = {
+    .dgdc_gpadc_ctrl = (1U << GPADC_GP_ADC_CTRL_REG_GP_ADC_SE_Pos) |
+                       (8U << GPADC_GP_ADC_CTRL_REG_GP_ADC_SEL_Pos),
+    .dgdc_gpadc_ctrl2 = 0,
+    .dgdc_gpadc_ctrl3 = 0,
+    .dgdc_gpadc_set_offp = 0,
+    .dgdc_gpadc_set_offn = 0,
+    .dgdc_gpadc_offp = 0,
+    .dgdc_gpadc_offn = 0,
+};
+
+struct os_dev *
+da1469x_open_battery_adc(const char *dev_name, uint32_t wait)
+{
+    struct os_dev *adc = os_dev_open(dev_name, wait, &os_bsp_gpadc_battery_cfg);
+    if (adc) {
+        /* call adc_chan_config to setup correct multiplier so read returns
+         * value in mV */
+        adc_chan_config((struct adc_dev *)adc, 0, NULL);
+    }
+    return adc;
+}
+
+#endif

@@ -207,6 +207,9 @@ stm32f4xx_hal_gpio.c
 stm32f4xx_hal_rcc.c
 stm32f4xx_hal_uart.c
 
+# STM32F4x MCU/BSP clock customization
+clock_stm32f4xx.c
+
 #STM32F0xx HAL - BSD licence
 STM32F0xx_HAL_Driver
 stm32f0xx
@@ -366,6 +369,9 @@ startup_stm32l152xc.s
 # NUCLEO-F767 BSP - BSD License
 startup_stm32f767xx.s
 
+# NUCLEO-F439 BSP - BSD License
+startup_stm32f439xx.s
+
 # NUCLEO-F413ZH BSP - BSD License
 nucleo-f413zh
 
@@ -469,12 +475,18 @@ stm32l0xx
 # STM32L4xx SDK - BSD License
 stm32l4xx
 
+# STM32WBxx SDK - BSD License
+stm32wbxx
+
 # Fanstel EVBT840 BSP linker scripts - BSD License
 fanstel-ev-bt840_no_boot.ld
 split-fanstel-ev-bt840.ld
 
 # B-L072Z-LRWAN1 BSP - BSD License
 b-l072z-lrwan1
+
+# B-L475E-IOT01A BSP - BSD License
+b-l475e-iot01a
 
 # bluepill BSP - BSD License
 bluepill

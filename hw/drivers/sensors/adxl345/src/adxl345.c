@@ -35,13 +35,14 @@
 #include "stats/stats.h"
 #include <syscfg/syscfg.h>
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
 static struct hal_spi_settings spi_adxl345_settings = {
     .data_order = HAL_SPI_MSB_FIRST,
     .data_mode  = HAL_SPI_MODE3,
     .baudrate   = 4000,
     .word_size  = HAL_SPI_WORD_SIZE_8BIT,
 };
-
+#endif
 
 /* Define the stats section and records */
 STATS_SECT_START(adxl345_stat_section)
@@ -57,9 +58,6 @@ STATS_NAME_END(adxl345_stat_section)
 
 /* Global variable used to hold stats data */
 STATS_SECT_DECL(adxl345_stat_section) g_adxl345stats;
-
-#define ADXL345_LOG(lvl_, ...) \
-    MODLOG_ ## lvl_(MYNEWT_VAL(ADXL345_LOG_MODULE), __VA_ARGS__)
 
 #define ADXL345_NOTIFY_MASK  0x01
 #define ADXL345_READ_MASK    0x02
@@ -116,7 +114,13 @@ adxl345_i2c_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
 {
     int rc;
     uint8_t payload[2] = { reg, value };
-    
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    rc = bus_node_simple_write(itf->si_dev, payload, 2);
+    if (rc) {
+        STATS_INC(g_adxl345stats, write_errors);
+    }
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 2,
@@ -127,11 +131,12 @@ adxl345_i2c_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
                            MYNEWT_VAL(ADXL345_I2C_RETRIES));
 
     if (rc) {
-        ADXL345_LOG(ERROR,
+        ADXL345_LOG_ERROR(
                     "Failed to write to 0x%02X:0x%02X with value 0x%02X\n",
                     itf->si_addr, reg, value);
         STATS_INC(g_adxl345stats, read_errors);
     }
+#endif
 
     return rc;
 }
@@ -150,6 +155,12 @@ adxl345_i2c_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, value, 1);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 1,
@@ -160,8 +171,8 @@ adxl345_i2c_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(ADXL345_I2C_RETRIES));
     if (rc) {
-        ADXL345_LOG(ERROR, "I2C access failed at address 0x%02X\n",
-                    itf->si_addr)
+        ADXL345_LOG_ERROR("I2C access failed at address 0x%02X\n",
+                    itf->si_addr);
                     
         STATS_INC(g_adxl345stats, write_errors);
         return rc;
@@ -173,10 +184,12 @@ adxl345_i2c_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
                           MYNEWT_VAL(ADXL345_I2C_RETRIES));
 
     if (rc) {
-        ADXL345_LOG(ERROR, "Failed to read from 0x%02X:0x%02X - %02X\n",
+        ADXL345_LOG_ERROR("Failed to read from 0x%02X:0x%02X - %02X\n",
                     itf->si_addr, reg, rc);
         STATS_INC(g_adxl345stats, read_errors);
     }
+#endif
+
     return rc;
 }
 
@@ -195,6 +208,12 @@ adxl345_i2c_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, buffer, len);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     struct hal_i2c_master_data data_struct = {
         .address = itf->si_addr,
         .len = 1,
@@ -205,7 +224,7 @@ adxl345_i2c_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_
     rc = i2cn_master_write(itf->si_num, &data_struct, OS_TICKS_PER_SEC / 10, 1,
                            MYNEWT_VAL(ADXL345_I2C_RETRIES));
     if (rc) {
-        ADXL345_LOG(ERROR, "I2C access failed at address 0x%02X\n",
+        ADXL345_LOG_ERROR("I2C access failed at address 0x%02X\n",
                     itf->si_addr);
         STATS_INC(g_adxl345stats, write_errors);
         return rc;
@@ -218,10 +237,11 @@ adxl345_i2c_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer, uint8_
                           MYNEWT_VAL(ADXL345_I2C_RETRIES));
 
     if (rc) {
-        ADXL345_LOG(ERROR, "Failed to read from 0x%02X:0x%02X\n",
+        ADXL345_LOG_ERROR("Failed to read from 0x%02X:0x%02X\n",
                     itf->si_addr, reg);
         STATS_INC(g_adxl345stats, read_errors);
     }
+#endif
 
     return rc;
 }
@@ -240,6 +260,13 @@ adxl345_spi_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    uint8_t payload[2] = { reg, value };
+    rc = bus_node_simple_write(itf->si_dev, payload, 2);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     /* Select the device */
     hal_gpio_write(itf->si_cs_pin, 0);
 
@@ -247,7 +274,7 @@ adxl345_spi_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
     rc = hal_spi_tx_val(itf->si_num, reg & ~ADXL345_SPI_READ_CMD_BIT);
     if (rc == 0xFFFF) {
         rc = SYS_EINVAL;
-        ADXL345_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        ADXL345_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                     itf->si_num, reg);
         STATS_INC(g_adxl345stats, write_errors);
         goto err;
@@ -257,7 +284,7 @@ adxl345_spi_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
     rc = hal_spi_tx_val(itf->si_num, value);
     if (rc == 0xFFFF) {
         rc = SYS_EINVAL;
-        ADXL345_LOG(ERROR, "SPI_%u write failed addr:0x%02X\n",
+        ADXL345_LOG_ERROR("SPI_%u write failed addr:0x%02X\n",
                     itf->si_num, reg);
         STATS_INC(g_adxl345stats, write_errors);
         goto err;
@@ -268,6 +295,7 @@ adxl345_spi_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
 err:
     /* De-select the device */
     hal_gpio_write(itf->si_cs_pin, 1);
+#endif
 
     return rc;
 }
@@ -285,8 +313,16 @@ err:
 int
 adxl345_spi_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
 {
-    uint16_t retval;
     int rc = 0;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    reg |= ADXL345_SPI_READ_CMD_BIT;
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, value, 1);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
+    uint16_t retval;
 
     /* Select the device */
     hal_gpio_write(itf->si_cs_pin, 0);
@@ -296,7 +332,7 @@ adxl345_spi_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
     
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        ADXL345_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        ADXL345_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                     itf->si_num, reg);
         STATS_INC(g_adxl345stats, read_errors);
         goto err;
@@ -306,7 +342,7 @@ adxl345_spi_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
     retval = hal_spi_tx_val(itf->si_num, 0);
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        ADXL345_LOG(ERROR, "SPI_%u read failed addr:0x%02X\n",
+        ADXL345_LOG_ERROR("SPI_%u read failed addr:0x%02X\n",
                      itf->si_num, reg);
         STATS_INC(g_adxl345stats, read_errors);
         goto err;
@@ -316,6 +352,7 @@ adxl345_spi_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
 err:
     /* De-select the device */
     hal_gpio_write(itf->si_cs_pin, 1);
+#endif
 
     return rc;
 }
@@ -334,9 +371,17 @@ int
 adxl345_spi_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
                     uint8_t len)
 {
+    int rc = 0;
+
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    reg |= ADXL345_SPI_READ_CMD_BIT | ADXL345_SPI_MULTIBYTE_CMD_BIT;
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, buffer, len);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     int i;
     uint16_t retval;
-    int rc = 0;
 
     /* Select the device */
     hal_gpio_write(itf->si_cs_pin, 0);
@@ -347,7 +392,7 @@ adxl345_spi_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
     
     if (retval == 0xFFFF) {
         rc = SYS_EINVAL;
-        ADXL345_LOG(ERROR, "SPI_%u register write failed addr:0x%02X\n",
+        ADXL345_LOG_ERROR("SPI_%u register write failed addr:0x%02X\n",
                     itf->si_num, reg);
         STATS_INC(g_adxl345stats, read_errors);
         goto err;
@@ -358,7 +403,7 @@ adxl345_spi_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
         retval = hal_spi_tx_val(itf->si_num, 0);
         if (retval == 0xFFFF) {
             rc = SYS_EINVAL;
-            ADXL345_LOG(ERROR, "SPI_%u read failed addr:0x%02X\n",
+            ADXL345_LOG_ERROR("SPI_%u read failed addr:0x%02X\n",
                         itf->si_num, reg);
             STATS_INC(g_adxl345stats, read_errors);
             goto err;
@@ -369,6 +414,7 @@ adxl345_spi_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
 err:
     /* De-select the device */
     hal_gpio_write(itf->si_cs_pin, 1);
+#endif
 
     return rc;
 }
@@ -388,6 +434,13 @@ adxl345_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    uint8_t payload[2] = { reg, value };
+    rc = bus_node_simple_write(itf->si_dev, payload, 2);
+    if (rc) {
+        STATS_INC(g_adxl345stats, write_errors);
+    }
+#else
     rc = sensor_itf_lock(itf, MYNEWT_VAL(ADXL345_ITF_LOCK_TMO));
     if (rc) {
         return rc;
@@ -400,6 +453,7 @@ adxl345_write8(struct sensor_itf *itf, uint8_t reg, uint8_t value)
     }
 
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -418,6 +472,18 @@ adxl345_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    struct adxl345 *dev = (struct adxl345 *)itf->si_dev;
+
+    if (dev->node_is_spi) {
+        reg |= ADXL345_SPI_READ_CMD_BIT;
+    }
+
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, value, 1);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     rc = sensor_itf_lock(itf, MYNEWT_VAL(ADXL345_ITF_LOCK_TMO));
     if (rc) {
         return rc;
@@ -430,6 +496,7 @@ adxl345_read8(struct sensor_itf *itf, uint8_t reg, uint8_t *value)
     }
 
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -450,6 +517,18 @@ adxl345_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
 {
     int rc;
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+    struct adxl345 *dev = (struct adxl345 *)itf->si_dev;
+
+    if (dev->node_is_spi) {
+        reg |= ADXL345_SPI_READ_CMD_BIT | ADXL345_SPI_MULTIBYTE_CMD_BIT;
+    }
+
+    rc = bus_node_simple_write_read_transact(itf->si_dev, &reg, 1, buffer, len);
+    if (rc) {
+        STATS_INC(g_adxl345stats, read_errors);
+    }
+#else
     rc = sensor_itf_lock(itf, MYNEWT_VAL(ADXL345_ITF_LOCK_TMO));
     if (rc) {
         return rc;
@@ -462,6 +541,7 @@ adxl345_readlen(struct sensor_itf *itf, uint8_t reg, uint8_t *buffer,
     }
 
     sensor_itf_unlock(itf);
+#endif
 
     return rc;
 }
@@ -513,7 +593,7 @@ adxl345_get_power_mode(struct sensor_itf *itf, enum adxl345_power_mode *state)
     reg &= 0xC;
     reg >>= 2;
 
-    *state = (enum adxl345_accel_range)reg;
+    *state = (enum adxl345_power_mode)reg;
 
     return 0;
 }
@@ -763,8 +843,8 @@ adxl345_get_tap_settings(struct sensor_itf *itf, struct adxl345_tap_settings *se
     }
 
     settings->x_enable = (enables & (1 << 2)) != 0;
-    settings->x_enable = (enables & (1 << 1)) != 0;
-    settings->x_enable = (enables & (1 << 0)) != 0;
+    settings->y_enable = (enables & (1 << 1)) != 0;
+    settings->z_enable = (enables & (1 << 0)) != 0;
     settings->suppress = (enables & (1 << 3)) != 0;
 
     return 0;
@@ -864,7 +944,7 @@ adxl345_set_act_inact_enables(struct sensor_itf *itf, struct adxl345_act_inact_e
     reg |= cfg.act_x       ? (1 << 6) : 0;
     reg |= cfg.act_ac_dc   ? (1 << 7) : 0;
 
-    ADXL345_LOG(ERROR, "act_inact = 0x%x\n", reg);
+    ADXL345_LOG_ERROR("act_inact = 0x%x\n", reg);
     
     return adxl345_write8(itf, ADXL345_ACT_INACT_CTL, reg);
     
@@ -1077,6 +1157,7 @@ adxl345_init(struct os_dev *dev, void *arg)
         return rc;
     }
 
+#if !MYNEWT_VAL(BUS_DRIVER_PRESENT)
     if (sensor->s_itf.si_type == SENSOR_ITF_SPI) {
         rc = hal_spi_config(sensor->s_itf.si_num, &spi_adxl345_settings);
         if (rc == EINVAL) {
@@ -1093,6 +1174,7 @@ adxl345_init(struct os_dev *dev, void *arg)
             return rc;
         }
     }
+#endif
 
 #if MYNEWT_VAL(ADXL345_INT_ENABLE)
     adxl->pdd.read_ctx.srec_sensor = sensor;
@@ -1382,7 +1464,7 @@ init_intpin(struct adxl345 * adxl345, hal_gpio_irq_handler_t handler,
     }
 
     if (pin < 0) {
-        ADXL345_LOG(ERROR, "Interrupt pin not configured\n");
+        ADXL345_LOG_ERROR("Interrupt pin not configured\n");
         return SYS_EINVAL;
     }
 
@@ -1398,7 +1480,7 @@ init_intpin(struct adxl345 * adxl345, hal_gpio_irq_handler_t handler,
     } else if (adxl345->sensor.s_itf.si_ints[pdd->int_num].device_pin == 2) {
         pdd->int_route = 0xFF;
     } else {
-        ADXL345_LOG(ERROR, "Route not configured\n");
+        ADXL345_LOG_ERROR("Route not configured\n");
         return SYS_EINVAL;
     }
 
@@ -1408,7 +1490,7 @@ init_intpin(struct adxl345 * adxl345, hal_gpio_irq_handler_t handler,
                            trig,
                            HAL_GPIO_PULL_NONE);
     if (rc != 0) {
-        ADXL345_LOG(ERROR, "Failed to initialise interrupt pin %d\n", pin);
+        ADXL345_LOG_ERROR("Failed to initialise interrupt pin %d\n", pin);
         return rc;
     } 
     
@@ -1511,7 +1593,7 @@ adxl345_sensor_handle_interrupt(struct sensor * sensor)
 
     rc = adxl345_clear_interrupts(itf, &int_status);
     if (rc != 0) {
-        ADXL345_LOG(ERROR, "Cound not read int status err=0x%02x\n", rc);
+        ADXL345_LOG_ERROR("Cound not read int status err=0x%02x\n", rc);
         return rc;
     }
 
@@ -1528,7 +1610,7 @@ adxl345_sensor_handle_interrupt(struct sensor * sensor)
     if ((pdd->registered_mask & ADXL345_READ_MASK) &&
         ((int_status & ADXL345_INT_ACTIVITY_BIT) ||
          (int_status & ADXL345_INT_INACTIVITY_BIT))) {
-        ADXL345_LOG(ERROR, "READ EVT 0x%02x\n", int_status);
+        ADXL345_LOG_ERROR("READ EVT 0x%02x\n", int_status);
         sensor_mgr_put_read_evt(&pdd->read_ctx);
     }
 
@@ -1740,7 +1822,7 @@ adxl345_sensor_set_notification(struct sensor * sensor,
     struct adxl345_private_driver_data *pdd;
     int rc;
 
-    ADXL345_LOG(ERROR, "Enabling notifications\n");
+    ADXL345_LOG_ERROR("Enabling notifications\n");
     
     if ((sensor_event_type & ~(SENSOR_EVENT_TYPE_DOUBLE_TAP |
                                SENSOR_EVENT_TYPE_SINGLE_TAP)) != 0) {
@@ -1776,7 +1858,7 @@ adxl345_sensor_set_notification(struct sensor * sensor,
     pdd->notify_ctx.snec_evtype |= sensor_event_type;
     pdd->registered_mask |= ADXL345_NOTIFY_MASK;
 
-    ADXL345_LOG(ERROR, "Enabled notifications\n");
+    ADXL345_LOG_ERROR("Enabled notifications\n");
     
     return 0;
 #else
@@ -1827,5 +1909,54 @@ adxl345_sensor_unset_notification(struct sensor * sensor,
 #endif
 }
 
+#if MYNEWT_VAL(BUS_DRIVER_PRESENT)
+static void
+init_node_cb(struct bus_node *bnode, void *arg)
+{
+    struct sensor_itf *itf = arg;
 
+    adxl345_init((struct os_dev *)bnode, itf);
+}
 
+int
+adxl345_create_i2c_sensor_dev(struct bus_i2c_node *node, const char *name,
+                              const struct bus_i2c_node_cfg *i2c_cfg,
+                              struct sensor_itf *sensor_itf)
+{
+    struct adxl345 *dev = (struct adxl345 *)node;
+    struct bus_node_callbacks cbs = {
+        .init = init_node_cb,
+    };
+    int rc;
+
+    dev->node_is_spi = false;
+
+    sensor_itf->si_dev = &node->bnode.odev;
+    bus_node_set_callbacks((struct os_dev *)node, &cbs);
+
+    rc = bus_i2c_node_create(name, node, i2c_cfg, sensor_itf);
+
+    return rc;
+}
+
+int
+adxl345_create_spi_sensor_dev(struct bus_spi_node *node, const char *name,
+                              const struct bus_spi_node_cfg *spi_cfg,
+                              struct sensor_itf *sensor_itf)
+{
+    struct adxl345 *dev = (struct adxl345 *)node;
+    struct bus_node_callbacks cbs = {
+        .init = init_node_cb,
+    };
+    int rc;
+
+    dev->node_is_spi = true;
+
+    sensor_itf->si_dev = &node->bnode.odev;
+    bus_node_set_callbacks((struct os_dev *)node, &cbs);
+
+    rc = bus_spi_node_create(name, node, spi_cfg, sensor_itf);
+
+    return rc;
+}
+#endif

@@ -63,6 +63,7 @@ void console_blocking_mode(void);
 void console_non_blocking_mode(void);
 void console_echo(int on);
 
+int console_vprintf(const char *fmt, va_list ap);
 int console_printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));;
 
@@ -130,6 +131,17 @@ extern void console_rx_restart(void);
 
 int console_lock(int timeout);
 int console_unlock(void);
+
+/**
+ * Set prompt and current input line.
+ *
+ * This shows prompt with current input editor, cursor is placed
+ * at the end of line.
+ *
+ * @param prompt non-editable part of user input line
+ * @param line  editable part
+ */
+void console_prompt_set(const char *prompt, const char *line);
 
 #ifdef __cplusplus
 }

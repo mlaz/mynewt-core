@@ -93,10 +93,10 @@ os_task_init(struct os_task *t, const char *name, os_task_func_t func,
     }
 
     _clear_stack(stack_bottom, stack_size);
-    t->t_stacktop = &stack_bottom[stack_size];
+    t->t_stackbottom = stack_bottom;
     t->t_stacksize = stack_size;
-    t->t_stackptr = os_arch_task_stack_init(t, t->t_stacktop,
-            t->t_stacksize);
+    t->t_stackptr = os_arch_task_stack_init(t, os_task_stacktop_get(t),
+                                            t->t_stacksize);
 
     STAILQ_FOREACH(task, &g_os_task_list, t_os_task_list) {
         assert(t->t_prio != task->t_prio);
@@ -124,6 +124,12 @@ os_task_init(struct os_task *t, const char *name, os_task_func_t func,
     return (0);
 err:
     return (rc);
+}
+
+os_stack_t *
+os_task_stacktop_get(struct os_task *t)
+{
+    return &t->t_stackbottom[t->t_stacksize];
 }
 
 int
@@ -168,33 +174,18 @@ os_task_remove(struct os_task *t)
     return rc;
 }
 
-
-struct os_task *
-os_task_info_get_next(const struct os_task *prev, struct os_task_info *oti)
+void
+os_task_info_get(const struct os_task *task, struct os_task_info *oti)
 {
-    struct os_task *next;
-    os_stack_t *top;
     os_stack_t *bottom;
+    os_stack_t *top;
 
-    if (prev != NULL) {
-        next = STAILQ_NEXT(prev, t_os_task_list);
-    } else {
-        next = STAILQ_FIRST(&g_os_task_list);
-    }
+    oti->oti_prio = task->t_prio;
+    oti->oti_taskid = task->t_taskid;
+    oti->oti_state = task->t_state;
 
-    if (next == NULL) {
-        return (NULL);
-    }
-
-    /* Otherwise, copy OS task information into the OTI structure, and
-     * return 1, which means continue
-     */
-    oti->oti_prio = next->t_prio;
-    oti->oti_taskid = next->t_taskid;
-    oti->oti_state = next->t_state;
-
-    top = next->t_stacktop;
-    bottom = next->t_stacktop - next->t_stacksize;
+    bottom = task->t_stackbottom;
+    top = bottom + task->t_stacksize;
     while (bottom < top) {
         if (*bottom != OS_STACK_PATTERN) {
             break;
@@ -202,15 +193,32 @@ os_task_info_get_next(const struct os_task *prev, struct os_task_info *oti)
         ++bottom;
     }
 
-    oti->oti_stkusage = (uint16_t) (next->t_stacktop - bottom);
-    oti->oti_stksize = next->t_stacksize;
-    oti->oti_cswcnt = next->t_ctx_sw_cnt;
-    oti->oti_runtime = next->t_run_time;
-    oti->oti_last_checkin = next->t_sanity_check.sc_checkin_last;
-    oti->oti_next_checkin = next->t_sanity_check.sc_checkin_last +
-        next->t_sanity_check.sc_checkin_itvl;
-    strncpy(oti->oti_name, next->t_name, sizeof(oti->oti_name));
+    oti->oti_stkusage = (uint16_t) (top - bottom);
+    oti->oti_stksize = task->t_stacksize;
+    oti->oti_cswcnt = task->t_ctx_sw_cnt;
+    oti->oti_runtime = task->t_run_time;
+    oti->oti_last_checkin = task->t_sanity_check.sc_checkin_last;
+    oti->oti_next_checkin = task->t_sanity_check.sc_checkin_last +
+                            task->t_sanity_check.sc_checkin_itvl;
+    oti->oti_name[0] = '\0';
+    strncat(oti->oti_name, task->t_name, sizeof(oti->oti_name) - 1);
+}
 
-    return (next);
+struct os_task *
+os_task_info_get_next(const struct os_task *prev, struct os_task_info *oti)
+{
+    struct os_task *next;
+
+    if (prev != NULL) {
+        next = STAILQ_NEXT(prev, t_os_task_list);
+    } else {
+        next = STAILQ_FIRST(&g_os_task_list);
+    }
+
+    if (next) {
+        os_task_info_get(next, oti);
+    }
+
+    return next;
 }
 

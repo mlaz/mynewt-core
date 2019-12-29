@@ -39,6 +39,7 @@ if [ "$MFG_IMAGE" ]; then
 fi
 
 parse_extra_jtag_cmd $EXTRA_JTAG_CMD
+jlink_target_cmd
 
 GDB_CMD_FILE=.gdb_load
 JLINK_LOG_FILE=.jlink_log
@@ -46,7 +47,7 @@ JLINK_LOG_FILE=.jlink_log
 # flash_loader build for this BSP
 if [ -z $FLASH_LOADER ]; then
     FL_TGT=da1469x_flash_loader
-    FLASH_LOADER=$BIN_ROOT/targets/$FL_TGT/app/apps/flash_loader/flash_loader.elf
+    FLASH_LOADER=$BIN_ROOT/targets/$FL_TGT/app/@apache-mynewt-core/apps/flash_loader/flash_loader.elf
 fi
 if [ ! -f $FLASH_LOADER ]; then
     FILE=${FLASH_LOADER##$(pwd)/}
@@ -75,21 +76,27 @@ file_size() {
 if [ "$BOOT_LOADER" ]; then
     IMAGE_FILE=$FILE_NAME.img
 
-    # allocate 9K for header
-    dd if=/dev/zero bs=9k count=1 | LANG=C tr "\000" "\377" > ${IMAGE_FILE}
+    if [ "${MYNEWT_VAL_BOOT_SECURE}" == 1 ]; then
+        if [ -z ${MYNEWT_VAL_BOOT_AES_KEY} ]; then
+            echo "Undefined AES KEY file.  Check syscfg settings"
+            exit 1
+        fi
 
-    # update product header
-    HEX="5070 00200000 00200000 eb00a5a8 66000000 aa11 0300 014007c84e"
-    echo -n ${HEX} | xxd -r -p | dd bs=1 of=${IMAGE_FILE} conv=notrunc
+        if [ -z ${MYNEWT_VAL_BOOT_SIG_PEM} ]; then
+            echo "Undefined signature PEM file. Check syscfg settings"
+            exit 1
+        fi
 
-    # update image header
-    SIZE=$(hex2le $(printf "%08x" $(file_size ${FILE_NAME})))
-    CRC32=$(hex2le $(crc32 ${FILE_NAME}))
-    HEX="5171 ${SIZE} ${CRC32} 00000000000000000000000000000000 00000000 00040000 aa22 0000 aa44 0000"
-    echo -n ${HEX} | xxd -r -p | dd bs=1 of=${IMAGE_FILE} seek=8k conv=notrunc
+        ${BSP_PATH}/da1469x_header_tool.py secure --sign ${MYNEWT_VAL_BOOT_SIG_PEM} \
+            -s${MYNEWT_VAL_BOOT_SIG_SLOT} -d${MYNEWT_VAL_BOOT_AES_SLOT} \
+            -E${MYNEWT_VAL_BOOT_AES_KEY} ${IMAGE_FILE} ${FILE_NAME}
+    else
+        ${BSP_PATH}/da1469x_header_tool.py nonsecure ${IMAGE_FILE} ${FILE_NAME}
+    fi
 
-    # append original image to header
-    cat $FILE_NAME >> ${IMAGE_FILE}
+    if [ $? != 0 ]; then
+        exit 1
+    fi
 
     # use new image for flashing
     FILE_NAME=${IMAGE_FILE}
@@ -97,17 +104,28 @@ fi
 
 FILE_SIZE=$(file_size $FILE_NAME)
 
+if [ -z $JLINK_TARGET_HOST ]; then
+    JLINK_SERVER_CMD="shell sh -c \"trap '' 2; $JLINK_GDB_SERVER -device cortex-m33 -speed 4000 -if SWD -port $PORT -singlerun $EXTRA_JTAG_CMD > $JLINK_LOG_FILE 2>&1 &\""
+fi
+
 cat > $GDB_CMD_FILE <<EOF
 set pagination off
-shell sh -c "trap '' 2; $JLINK_GDB_SERVER -device cortex-m33 -speed 4000 -if SWD -port $PORT -singlerun $EXTRA_JTAG_CMD > $JLINK_LOG_FILE 2>&1 &"
-target remote localhost:$PORT
+$JLINK_SERVER_CMD
+$JLINK_TARGET_CMD
 mon reset
 mon halt
 restore $FLASH_LOADER.bin binary 0x20000000
 symbol-file $FLASH_LOADER
+
+# Configure QSPI controller so it can read flash in automode (values 
+# valid for Macronix flash found on Dialog development kits)
+set *(int *)0x3800000C = 0xa8a500eb
+set *(int *)0x38000010 = 0x00000066
+
 set *(int *)0x500000BC = 4
 set \$sp=*(int *)0x20000000
 set \$pc=*(int *)0x20000004
+set {int}0x38000080 = 0
 b main
 c
 d 1
@@ -123,13 +141,17 @@ end
 fl_erase 0 $FLASH_OFFSET $FILE_SIZE
 fl_program $FILE_NAME 0 $FLASH_OFFSET
 
-mon reset
+# 'mon reset' does not appear to reset the board. Write to MCU register
+# directly instead.
+set *(int *)0x100C0050 = 1
 quit
 
 EOF
 
-arm-none-eabi-gdb -x $GDB_CMD_FILE
-
+arm-none-eabi-gdb -batch -x $GDB_CMD_FILE
+if [ $? != 0 ]; then
+    exit 1
+fi
 # gdb appears to exit before jlinkgdbserver, so immediate
 # execution of debug script (i.e. from 'newt run'), will fail due
 # to 2 instances of jlinkgdbserver running. Slow exit from here for a bit.

@@ -197,7 +197,7 @@ CBOR_API CborError cbor_encode_byte_iovec(CborEncoder *encoder,
                                           const struct cbor_iovec iov[],
                                           int iov_len);
 CBOR_API CborError cbor_encode_floating_point(CborEncoder *encoder, CborType fpType, const void *value);
-CBOR_INLINE_API CborError cbor_encode_bytes_written(CborEncoder *encoder)
+CBOR_INLINE_API int cbor_encode_bytes_written(CborEncoder *encoder)
 {   return encoder->writer->bytes_written; }
 CBOR_INLINE_API CborError cbor_encode_boolean(CborEncoder *encoder, bool value)
 { return cbor_encode_simple_value(encoder, (int)value - 1 + (CborBooleanType & 0x1f)); }
@@ -215,6 +215,7 @@ CBOR_INLINE_API CborError cbor_encode_double(CborEncoder *encoder, double value)
 
 CBOR_API CborError cbor_encoder_create_array(CborEncoder *encoder, CborEncoder *arrayEncoder, size_t length);
 CBOR_API CborError cbor_encoder_create_map(CborEncoder *encoder, CborEncoder *mapEncoder, size_t length);
+CBOR_API CborError cbor_encoder_create_indef_text_string(CborEncoder *encoder, CborEncoder *stringEncoder);
 CBOR_API CborError cbor_encoder_create_indef_byte_string(CborEncoder *encoder, CborEncoder *stringEncoder);
 CBOR_API CborError cbor_encoder_close_container(CborEncoder *encoder, const CborEncoder *containerEncoder);
 CBOR_API CborError cbor_encoder_close_container_checked(CborEncoder *encoder, const CborEncoder *containerEncoder);

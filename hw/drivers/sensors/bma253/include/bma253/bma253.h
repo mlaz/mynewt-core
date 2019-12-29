@@ -29,9 +29,67 @@
 extern "C" {
 #endif
 
-/* XXX use some better defaults. For now it is min */
-#define BMA253_LOW_G_DELAY_MS_DEFAULT       2
-#define BMA253_HIGH_G_DELAY_MS_DEFAULT      2
+
+#define BMA253_UNUSED_VAR(v)    ((void)v)
+
+/* XXX use some better defaults.*/
+#define BMA253_NO_MOTION_DURATION           5
+#define BMA253_NO_MOTION_THRESH             0.3
+#define BMA253_SLOPE_INT_DURATION           3
+#define BMA253_SLOPE_INT_THRESH             0.3
+
+#define BMA253_LOW_G_DELAY_MS_DEFAULT       20
+#define BMA253_LOW_DUR                      142
+#define BMA253_LOW_THRESHOLD                0.375
+#define BMA253_LOW_HYS                      0.125
+
+#define BMA253_LOW_AXIS_SUMMING             false
+
+#define BMA253_HIGH_G_DELAY_MS_DEFAULT      40
+#define BMA253_HIGH_DUR                     40
+#define BMA253_HIGH_THRESHOLD_G             1.5
+#define BMA253_HIGH_HYS                     0.25
+
+#define BMA253_TAP_THRESHOLD_G              1.0
+
+#define BMA253_BLOCKING_ANGLE               0x08
+#define BMA253_ORIENT_HYSTER_G              0.125
+#define BMA253_SIG_UP_DN                    false
+
+/* define interrupt cofiguration type */
+#define BMA253_SINGLE_TAP_INT               0
+#define BMA253_DOUBLE_TAP_INT               1
+#define BMA253_LOW_G_INT                    2
+#define BMA253_ORIENT_INT                   3
+#define BMA253_SLEEP_INT                    4
+#define BMA253_WAKEUP_INT                   5
+//#define BMA253_HIGH_G_INT                   6
+#define BMA253_HIGH_G_P_X_INT               6
+#define BMA253_HIGH_G_P_Y_INT               7
+#define BMA253_HIGH_G_P_Z_INT               8
+#define BMA253_HIGH_G_N_X_INT               9
+#define BMA253_HIGH_G_N_Y_INT               10
+#define BMA253_HIGH_G_N_Z_INT               11
+
+#define BMA253_LOW_G_SRC                    0x01
+#define BMA253_SLEEP_SRC                    0x08
+#define BMA253_WAKEUP_SRC                   0x04
+#define BMA253_HIGH_G_SRC                   0x02
+#define BMA253_DOUBLE_TAP_SRC               0x10
+#define BMA253_SINGLE_TAP_SRC               0x20
+#define BMA253_ORIENT_SRC                   0x40
+
+#define BMA253_POS_HIGH_G_X_SRC             0x01
+#define BMA253_POS_HIGH_G_Y_SRC             0x02
+#define BMA253_POS_HIGH_G_Z_SRC             0x04
+#define BMA253_NEG_HIGH_G_X_SRC             0x01
+#define BMA253_NEG_HIGH_G_Y_SRC             0x02
+#define BMA253_NEG_HIGH_G_Z_SRC             0x04
+
+
+
+
+
 
 /* Range of acceleration measurements */
 enum bma253_g_range {
@@ -134,44 +192,12 @@ enum bma253_read_mode {
     BMA253_READ_M_STREAM = 1,
 };
 
-/* Default configuration values to use with the device */
-struct bma253_cfg {
-    /* Accelerometer configuration */
-    enum bma253_g_range g_range;
-    enum bma253_filter_bandwidth filter_bandwidth;
-    /* Whether to use data that has not been filtered at all */
-    bool use_unfiltered_data;
-    /* Low-g event configuration */
-    uint16_t low_g_delay_ms;
-    float low_g_thresh_g;
-    float low_g_hyster_g;
-    /* High-g event configuration */
-    float high_g_hyster_g;
-    uint16_t high_g_delay_ms;
-    float high_g_thresh_g;
-    /* Tap (double & single) event configuration */
-    enum bma253_tap_quiet tap_quiet;
-    enum bma253_tap_shock tap_shock;
-    enum bma253_d_tap_window d_tap_window;
-    enum bma253_tap_wake_samples tap_wake_samples;
-    float tap_thresh_g;
-    /* Orientation event configuration */
-    float orient_hyster_g;
-    enum bma253_orient_blocking orient_blocking;
-    enum bma253_orient_mode orient_mode;
-    bool orient_signal_ud;
-    /* Offsets for acceleration measurements, by axis */
-    float offset_x_g;
-    float offset_y_g;
-    float offset_z_g;
-    /* Power management configuration */
-    enum bma253_power_mode power_mode;
-    enum bma253_sleep_duration sleep_duration;
-    /* Select read mode */
-    enum bma253_read_mode read_mode;
-    /* Applicable sensor types supported */
-    sensor_type_t sensor_mask;
+struct bma253_notif_cfg {
+    sensor_event_type_t event;
+    uint8_t notif_src;
+    uint8_t int_cfg;
 };
+
 
 /* Used to track interrupt state to wake any present waiters */
 struct bma253_int {
@@ -197,7 +223,104 @@ struct bma253_private_driver_data {
     uint8_t int_num;
     uint8_t int_route;
     uint8_t int_ref_cnt;
+
+    uint8_t fifo_buf[31 * 6];
 };
+
+typedef union bma253_feature_enable {
+    struct {
+        uint32_t any_motion :1;
+        uint32_t double_tap :1;
+        uint32_t single_tap :1;
+        uint32_t orient     :1;
+        uint32_t low_g      :1;
+        uint32_t high_g     :1;
+    } req;
+
+    uint32_t bits;
+} bma253_feature_enable_t;
+
+/* Settings for the low-g interrupt */
+struct low_g_int_cfg {
+    uint16_t delay_ms;
+    float thresh_g;
+    float hyster_g;
+    bool axis_summing;
+};
+
+struct high_g_int_cfg {
+    float hyster_g;
+    uint16_t delay_ms;
+    float thresh_g;
+};
+
+/* Settings for the slow/no-motion interrupt */
+struct slow_no_mot_int_cfg {
+    uint16_t duration_p_or_s;
+    float thresh_g;
+};
+
+/* Settings for the slope interrupt */
+struct slope_int_cfg {
+    uint8_t duration_p;
+    float thresh_g;
+};
+
+/* Settings for the double/single tap interrupt */
+struct tap_int_cfg {
+    enum bma253_tap_quiet tap_quiet;
+    enum bma253_tap_shock tap_shock;
+    enum bma253_d_tap_window d_tap_window;
+    enum bma253_tap_wake_samples tap_wake_samples;
+    float thresh_g;
+};
+
+/* Settings for the orientation interrupt */
+struct orient_int_cfg {
+    float hyster_g;
+    enum bma253_orient_blocking orient_blocking;
+    enum bma253_orient_mode orient_mode;
+    bool signal_up_dn;
+    uint8_t blocking_angle;
+};
+
+
+/* Default configuration values to use with the device */
+struct bma253_cfg {
+    /* Accelerometer configuration */
+    enum bma253_g_range g_range;
+    enum bma253_filter_bandwidth filter_bandwidth;
+    /* Whether to use data that has not been filtered at all */
+    bool use_unfiltered_data;
+
+    struct slope_int_cfg slope_int_cfg;
+    struct slow_no_mot_int_cfg slow_no_mot_int_cfg;
+    struct low_g_int_cfg low_g_int_cfg;
+    struct high_g_int_cfg high_g_int_cfg;
+    struct tap_int_cfg tap_int_cfg;
+    struct orient_int_cfg orient_int_cfg;
+
+    bool orient_signal_ud;
+    /* Offsets for acceleration measurements, by axis */
+    float offset_x_g;
+    float offset_y_g;
+    float offset_z_g;
+    /* Power management configuration */
+    enum bma253_power_mode power_mode;
+    enum bma253_sleep_duration sleep_duration;
+    /* Select read mode */
+    enum bma253_read_mode read_mode;
+    /* Applicable sensor types supported */
+    sensor_type_t sensor_mask;
+    /* Notif config */
+    struct bma253_notif_cfg *notif_cfg;
+    uint8_t max_num_notif;
+};
+
+
+#ifndef MAX
+#define MAX(n, m) (((n) < (m)) ? (m) : (n))
+#endif
 
 /* The device itself */
 struct bma253 {
@@ -220,6 +343,30 @@ struct bma253 {
 
     /* Private driver data */
     struct bma253_private_driver_data pdd;
+
+    /* all the features currently enabled */
+    sensor_event_type_t     ev_enabled;
+
+    uint32_t                daq_req_new: 1;
+    /* the data acquisition is in progress */
+    uint32_t                daq_in_proc: 1;
+
+
+    /* this flag is to turn on or off bus read/write monitoring */
+    uint32_t                bus_rw_mon      :1;
+
+    /* currently configured bandwidth on hw, of type: enum bma253_filter_bandwidth */
+    uint32_t                bandwidth_curr  :3;
+
+    /* this flag tells that an important hw config change (like bandwidth, power mode) is pending */
+    uint32_t                hw_cfg_pending  :1;
+
+    /* pending power mode, of type enum bma253_power_mode */
+    uint32_t                pending_hw_cfg_pm:3;
+
+    /* pending bandwidth, of type enum bma253_filter_bandwidth */
+    uint32_t                pending_hw_cfg_bw:3;
+
 };
 
 /* Offset compensation is performed to target this given value, by axis */
@@ -250,6 +397,7 @@ enum bma253_tap_type {
     BMA253_TAP_TYPE_DOUBLE = 0,
     BMA253_TAP_TYPE_SINGLE = 1,
 };
+
 
 /**
  * Perform a self test of the device and report on its health.

@@ -144,6 +144,16 @@ os_arch_in_critical(void)
     return (isr_ctx & 1);
 }
 
+static void
+os_arch_task_return_handler(void)
+{
+    /*
+     * If you are stuck here it means that task finished by
+     * simple return which is not supported.
+     */
+    while (1);
+}
+
 os_stack_t *
 os_arch_task_stack_init(struct os_task *t, os_stack_t *stack_top, int size)
 {
@@ -154,8 +164,8 @@ os_arch_task_stack_init(struct os_task *t, os_stack_t *stack_top, int size)
     /* Get stack frame pointer */
     s = (os_stack_t *) ((uint8_t *) stack_top - sizeof(*sf));
 
-    /* Zero out R1-R3, R12, LR */
-    for (i = 9; i < 14; ++i) {
+    /* Zero out R1-R3, R12 */
+    for (i = 9; i < 13; ++i) {
         s[i] = 0;
     }
 
@@ -167,6 +177,8 @@ os_arch_task_stack_init(struct os_task *t, os_stack_t *stack_top, int size)
     sf->xpsr = INITIAL_xPSR;
     sf->pc = (uint32_t)t->t_func;
     sf->r0 = (uint32_t)t->t_arg;
+    /* Set function to cache returns from tasks. */
+    sf->lr = (uint32_t)os_arch_task_return_handler;
 
     return (s);
 }
@@ -201,21 +213,21 @@ os_arch_os_init(void)
             NVIC->IP[i] = -1;
         }
 
+        /*
+         * Install default interrupt handler for all interrupts except Reset,
+         * which'll print out system state at the time of the interrupt, and
+         * few other regs which should help in trying to figure out what went
+         * wrong.
+         */
+        for (i = -NVIC_USER_IRQ_OFFSET + 2;
+             i < NVIC_NUM_VECTORS - NVIC_USER_IRQ_OFFSET; i++) {
+            NVIC_SetVector(i, (uint32_t)os_default_irq_asm);
+        }
+
+        /* Install our system interrupt handlers */
         NVIC_SetVector(SVC_IRQ_NUMBER, (uint32_t)SVC_Handler);
         NVIC_SetVector(PendSV_IRQn, (uint32_t)PendSV_Handler);
         NVIC_SetVector(SysTick_IRQn, (uint32_t)SysTick_Handler);
-
-        /*
-         * Install default interrupt handler, which'll print out system
-         * state at the time of the interrupt, and few other regs which
-         * should help in trying to figure out what went wrong.
-         */
-        NVIC_SetVector(NonMaskableInt_IRQn, (uint32_t)os_default_irq_asm);
-        NVIC_SetVector(HardFault_IRQn, (uint32_t)os_default_irq_asm);
-        NVIC_SetVector(-13, (uint32_t)os_default_irq_asm); /* Hardfault */
-        for (i = 0; i < NVIC_NUM_VECTORS - NVIC_USER_IRQ_OFFSET; i++) {
-            NVIC_SetVector(i, (uint32_t)os_default_irq_asm);
-        }
 
         /* Set the PendSV interrupt exception priority to the lowest priority */
         NVIC_SetPriority(PendSV_IRQn, PEND_SV_PRIO);

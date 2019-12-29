@@ -26,6 +26,7 @@
 extern "C" {
 #endif
 
+
 /*
  * Full register map:
  */
@@ -100,6 +101,24 @@ extern "C" {
 /* Magical value that is used to initiate a full reset */
 #define REG_VALUE_SOFT_RESET 0xB6
 
+#define SPEC_MAX_FIFO_DEPTH  31
+
+#define BMA253_SPI_READ_CMD_BIT 0x80
+
+#define BMA253_SAMPLE_COUNT_TO_INVALIDATE 4
+
+
+    /* variant specifc defines */
+#define BMA253_G_SCALE_2     (0.000977f)
+#define BMA253_G_SCALE_4     (0.001953f)
+#define BMA253_G_SCALE_8     (0.003906f)
+#define BMA253_G_SCALE_16     (0.007813f)
+#define BMA253_ACCEL_BIT_SHIFT 4
+
+#define BMA253_DATA_LSB_MASK 0xfc
+
+
+
 /* Get the chip ID */
 int
 bma253_get_chip_id(const struct bma253 * bma253,
@@ -139,36 +158,80 @@ enum axis_trigger_sign {
 
 /* Which axis was this interrupt triggered on */
 struct axis_trigger {
-    enum axis_trigger_sign sign;
-    enum axis axis;
-    bool axis_known;
+    /* value of type enum axis_trigger_sign  */
+    uint8_t sign    :1;
+    /* value of type enum axis  */
+    uint8_t axis    :2;
+    uint8_t axis_known :1;
 };
 
 /* Active status of all interrupts */
-struct int_status {
-    bool flat_int_active;
-    bool orient_int_active;
-    bool s_tap_int_active;
-    bool d_tap_int_active;
-    bool slow_no_mot_int_active;
-    bool slope_int_active;
-    bool high_g_int_active;
-    bool low_g_int_active;
-    bool data_int_active;
-    bool fifo_wmark_int_active;
-    bool fifo_full_int_active;
-    struct axis_trigger tap_trigger;
-    struct axis_trigger slope_trigger;
-    bool device_is_flat;
-    bool device_is_down;
-    enum bma253_orient_xy device_orientation;
-    struct axis_trigger high_g_trigger;
-};
+typedef struct {
+    union {
+        struct {
+            uint8_t low_g_int_active        :1;
+            uint8_t high_g_int_active       :1;
+            uint8_t slope_int_active        :1;
+            uint8_t slow_no_mot_int_active  :1;
+            uint8_t d_tap_int_active        :1;
+            uint8_t s_tap_int_active        :1;
+            uint8_t orient_int_active       :1;
+            uint8_t flat_int_active         :1;
+        } bits;
+
+        uint8_t reg;
+
+    } int_status_0;
+
+    union {
+        struct {
+            uint8_t reserved_1              :5;
+            uint8_t fifo_full_int_active    :1;
+            uint8_t fifo_wmark_int_active   :1;
+            uint8_t data_int_active         :1;
+        } bits;
+
+        uint8_t reg;
+    } int_status_1;
+
+
+    union {
+        struct {
+            uint8_t slope_first             :3;
+            uint8_t slope_sign              :1;
+            uint8_t tap_first               :3;
+            uint8_t tap_sign                :1;
+        } bits;
+
+        uint8_t reg;
+    } int_status_2;
+
+    union {
+        struct {
+            uint8_t high_first              :3;
+            uint8_t high_sign               :1;
+            /* value of type: enum bma253_orient_xy */
+            uint8_t device_orientation      :2;
+            uint8_t device_is_down          :1;
+            uint8_t device_is_flat          :1;
+
+        } bits;
+
+        uint8_t reg;
+    } int_status_3;
+
+} bma253_int_stat_t;
+
+
+#define BMA253_GET_VAL_BIT(val, bit) (((val)>>(bit)) & 0x01)
+#define BMA253_GET_VAL_BIT_BLOCK(val, start, end) (((val)>>(start)) & ((1<<(end - (start) + 1))-1))
+
+#define BMA253_SET_VAL_BIT(val, bit) (val | (1 << (bit)))
 
 /* Get the active status of all interrupts */
 int
 bma253_get_int_status(const struct bma253 * bma253,
-                      struct int_status * int_status);
+                      bma253_int_stat_t * int_status);
 
 /* Get the status and size of the FIFO */
 int
@@ -366,13 +429,6 @@ bma253_set_int_latch(const struct bma253 * bma253,
                      bool reset_ints,
                      enum int_latch int_latch);
 
-/* Settings for the low-g interrupt */
-struct low_g_int_cfg {
-    uint16_t delay_ms;
-    float thresh_g;
-    float hyster_g;
-    bool axis_summing;
-};
 
 /* Get/Set the low-g interrupt settings */
 int
@@ -382,13 +438,6 @@ int
 bma253_set_low_g_int_cfg(const struct bma253 * bma253,
                          const struct low_g_int_cfg * low_g_int_cfg);
 
-/* Settings for the high-g interrupt */
-struct high_g_int_cfg {
-    float hyster_g;
-    uint16_t delay_ms;
-    float thresh_g;
-};
-
 /* Get/Set the high-g interrupt settings */
 int
 bma253_get_high_g_int_cfg(const struct bma253 * bma253,
@@ -396,14 +445,7 @@ bma253_get_high_g_int_cfg(const struct bma253 * bma253,
                           struct high_g_int_cfg * high_g_int_cfg);
 int
 bma253_set_high_g_int_cfg(const struct bma253 * bma253,
-                          enum bma253_g_range g_range,
                           const struct high_g_int_cfg * high_g_int_cfg);
-
-/* Settings for the slow/no-motion interrupt */
-struct slow_no_mot_int_cfg {
-    uint16_t duration_p_or_s;
-    float thresh_g;
-};
 
 /* Get/Set the slow/no-motion interrupt settings */
 int
@@ -414,14 +456,7 @@ bma253_get_slow_no_mot_int_cfg(const struct bma253 * bma253,
 int
 bma253_set_slow_no_mot_int_cfg(const struct bma253 * bma253,
                                bool no_motion_select,
-                               enum bma253_g_range g_range,
                                const struct slow_no_mot_int_cfg * slow_no_mot_int_cfg);
-
-/* Settings for the slope interrupt */
-struct slope_int_cfg {
-    uint8_t duration_p;
-    float thresh_g;
-};
 
 /* Get/Set the slope interrupt settings */
 int
@@ -430,17 +465,7 @@ bma253_get_slope_int_cfg(const struct bma253 * bma253,
                          struct slope_int_cfg * slope_int_cfg);
 int
 bma253_set_slope_int_cfg(const struct bma253 * bma253,
-                         enum bma253_g_range g_range,
                          const struct slope_int_cfg * slope_int_cfg);
-
-/* Settings for the double/single tap interrupt */
-struct tap_int_cfg {
-    enum bma253_tap_quiet tap_quiet;
-    enum bma253_tap_shock tap_shock;
-    enum bma253_d_tap_window d_tap_window;
-    enum bma253_tap_wake_samples tap_wake_samples;
-    float thresh_g;
-};
 
 /* Get/Set the double/single tap interrupt settings */
 int
@@ -451,15 +476,6 @@ int
 bma253_set_tap_int_cfg(const struct bma253 * bma253,
                        enum bma253_g_range g_range,
                        const struct tap_int_cfg * tap_int_cfg);
-
-/* Settings for the orientation interrupt */
-struct orient_int_cfg {
-    float hyster_g;
-    enum bma253_orient_blocking orient_blocking;
-    enum bma253_orient_mode orient_mode;
-    bool signal_up_dn;
-    uint8_t blocking_angle;
-};
 
 /* Get/Set the orientation interrupt settings */
 int
@@ -648,6 +664,9 @@ bma253_get_fifo(const struct bma253 * bma253,
                 enum bma253_g_range g_range,
                 enum fifo_data fifo_data,
                 struct accel_data * accel_data);
+
+
+void bma253_dump_reg(struct bma253 * bma253);
 
 #ifdef __cplusplus
 }
