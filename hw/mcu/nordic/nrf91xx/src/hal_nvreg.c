@@ -17,9 +17,10 @@
  * under the License.
  */
 
-#include <mcu/cortex_m4.h>
+#include <mcu/cortex_m33.h>
 #include "hal/hal_nvreg.h"
 #include "nrf.h"
+#include "nrfx_config.h"
 
 /* There are two GPREGRET registers on the NRF52 */
 #define HAL_NVREG_MAX (2)
@@ -28,8 +29,8 @@
 #define HAL_NVREG_WIDTH_BYTES (1)
 
 static volatile uint32_t *regs[HAL_NVREG_MAX] = {
-    &NRF_POWER->GPREGRET,
-    &NRF_POWER->GPREGRET2
+    &NRF_POWER->GPREGRET[0],
+    &NRF_POWER->GPREGRET[1]
 };
 
 void

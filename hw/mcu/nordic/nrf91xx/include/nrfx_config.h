@@ -20,14 +20,8 @@
 #ifndef NRFX_CONFIG_H__
 #define NRFX_CONFIG_H__
 
-#if NRF52
-#include "nrfx52_config.h"
-#elif NRF52810_XXAA
-#include "nrfx52810_config.h"
-#elif NRF52811_XXAA
-#include "nrfx52811_config.h"
-#elif NRF52840_XXAA
-#include "nrfx52840_config.h"
+#if NRF9160_XXAA
+#include "nrfx9160_config.h"
 #else
 #error Unsupported chip selected
 #endif

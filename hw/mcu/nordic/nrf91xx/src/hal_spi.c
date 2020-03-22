@@ -808,15 +808,15 @@ hal_spi_enable(int spi_num)
 {
     int rc;
     NRF_SPIS_Type *spis;
-    NRF_SPI_Type *nrf_spi;
+    NRF_SPIM_Type *nrf_spi;
     struct nrf52_hal_spi *spi;
 
     NRF52_HAL_SPI_RESOLVE(spi_num, spi);
 
     if (spi->spi_type  == HAL_SPI_TYPE_MASTER) {
         /* For now, enable this in normal SPI mode (not spim) */
-        nrf_spi = (NRF_SPI_Type *)spi->nhs_spi.spim;
-        nrf_spi->ENABLE = (SPI_ENABLE_ENABLE_Enabled << SPI_ENABLE_ENABLE_Pos);
+        nrf_spi = (NRF_SPIM_Type *)spi->nhs_spi.spim;
+        nrf_spi->ENABLE = (SPIM_ENABLE_ENABLE_Enabled << SPIM_ENABLE_ENABLE_Pos);
     } else {
         if (spi->txrx_cb_func == NULL) {
             rc = EINVAL;
@@ -1024,7 +1024,7 @@ hal_spi_txrx(int spi_num, void *txbuf, void *rxbuf, int len)
 
         spi = (NRF_SPI_Type *)spim;
         if (enabled == 0) {
-            spi->ENABLE = (SPI_ENABLE_ENABLE_Enabled << SPI_ENABLE_ENABLE_Pos);
+            spi->ENABLE = (SPIM_ENABLE_ENABLE_Enabled << SPIM_ENABLE_ENABLE_Pos);
         }
 
         while (spi->EVENTS_READY) {

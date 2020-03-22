@@ -19,6 +19,7 @@
 
 #include <nrf.h>
 #include "hal/hal_system.h"
+#include "nrfx_config.h"
 
 enum hal_reset_reason
 hal_reset_cause(void)

@@ -100,14 +100,14 @@ hal_bsp_get_nvic_priority(int irq_num, uint32_t pri)
 {
     uint32_t cfg_pri;
 
-    switch (irq_num) {
-    /* Radio gets highest priority */
-    case RADIO_IRQn:
-        cfg_pri = 0;
-        break;
-    default:
+    /* switch (irq_num) { */
+    /* /\* Radio gets highest priority *\/ */
+    /* case RADIO_IRQn: */
+    /*     cfg_pri = 0; */
+    /*     break; */
+    /* default: */
         cfg_pri = pri;
-    }
+    /* } */
     return cfg_pri;
 }
 

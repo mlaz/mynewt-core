@@ -22,6 +22,7 @@
 #include "os/mynewt.h"
 #include "hal/hal_gpio.h"
 #include "mcu/cmsis_nvic.h"
+#include "nrfx_config.h"
 #include "nrf.h"
 #include "mcu/nrf52_hal.h"
 
@@ -34,6 +35,8 @@
 
 /* GPIO interrupts */
 #define HAL_GPIO_MAX_IRQ        8
+
+#define GPIOTE_IRQn GPIOTE1_IRQn
 
 #if MYNEWT_VAL(MCU_GPIO_USE_PORT_EVENT)
 #define HAL_GPIO_SENSE_TRIG_NONE    0x00 /* just 0 */

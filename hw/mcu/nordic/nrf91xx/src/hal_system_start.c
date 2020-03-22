@@ -19,7 +19,7 @@
 
 #include <stddef.h>
 #include <inttypes.h>
-#include <mcu/cortex_m4.h>
+#include <mcu/cortex_m33.h>
 #include <mcu/nrf52_hal.h>
 
 /**

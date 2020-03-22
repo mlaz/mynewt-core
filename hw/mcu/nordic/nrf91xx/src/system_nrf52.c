@@ -33,360 +33,265 @@
 #include "mcu/cmsis_nvic.h"
 #include "nrf.h"
 
-#ifdef NRF52840_XXAA
-#include "system_nrf52840.h"
-#endif
-
-#ifdef NRF52
-#include "system_nrf52.h"
-#endif
-
-#ifdef NRF52810_XXAA
-#include "system_nrf52810.h"
-#endif
-
-#ifdef NRF52811_XXAA
-#include "system_nrf52811.h"
+#ifdef NRF9160_XXAA
+#include "system_nrf9160.h"
+#include "nrf9160.h"
 #endif
 
 /*lint ++flb "Enter library region" */
 
-#define __SYSTEM_CLOCK_64M      (64000000UL)
+#define __SYSTEM_CLOCK      (64000000UL)
 
-#ifdef NRF52840_XXAA
-static bool errata_36(void);
-static bool errata_98(void);
-static bool errata_103(void);
-static bool errata_115(void);
-static bool errata_120(void);
-static bool errata_121(void);
+#ifdef NRF9160_XXAA
+static bool nrf91_errata_1(void) __UNUSED;
+static bool nrf91_errata_2(void) __UNUSED;
+static bool nrf91_errata_4(void) __UNUSED;
+static bool nrf91_errata_6(void) __UNUSED;
+static bool nrf91_errata_7(void) __UNUSED;
+static bool nrf91_errata_8(void) __UNUSED;
+static bool nrf91_errata_9(void) __UNUSED;
+static bool nrf91_errata_10(void) __UNUSED;
+static bool nrf91_errata_12(void) __UNUSED;
+static bool nrf91_errata_14(void) __UNUSED;
+static bool nrf91_errata_15(void) __UNUSED;
+static bool nrf91_errata_16(void) __UNUSED;
+static bool nrf91_errata_17(void) __UNUSED;
+static bool nrf91_errata_20(void) __UNUSED;
+static bool nrf91_errata_21(void) __UNUSED;
+static bool nrf91_errata_23(void) __UNUSED;
+static bool nrf91_errata_24(void) __UNUSED;
+static bool nrf91_errata_26(void) __UNUSED;
+static bool nrf91_errata_27(void) __UNUSED;
+static bool nrf91_errata_28(void) __UNUSED;
+static bool nrf91_errata_29(void) __UNUSED;
+static bool nrf91_errata_30(void) __UNUSED;
+static bool nrf91_errata_31(void) __UNUSED;
 #endif
 
-#ifdef NRF52
-static bool errata_16(void);
-static bool errata_31(void);
-static bool errata_32(void);
-static bool errata_36(void);
-static bool errata_37(void);
-static bool errata_57(void);
-static bool errata_66(void);
-static bool errata_108(void);
-#endif
-
-#ifdef NRF52810_XXAA
-static bool errata_31(void);
-static bool errata_36(void);
-static bool errata_66(void);
-static bool errata_103(void);
-static bool errata_108(void);
-static bool errata_136(void);
-#endif
-
-#ifdef NRF52811_XXAA
-static bool errata_31(void);
-static bool errata_36(void);
-static bool errata_66(void);
-static bool errata_108(void);
-static bool errata_136(void);
-#endif
+#define TRACE_PIN_CNF_VALUE (   (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos) | \
+                                (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | \
+                                (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos) | \
+                                (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | \
+                                (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos) )
+#define TRACE_TRACECLK_PIN   (21)
+#define TRACE_TRACEDATA0_PIN (22)
+#define TRACE_TRACEDATA1_PIN (23)
+#define TRACE_TRACEDATA2_PIN (24)
+#define TRACE_TRACEDATA3_PIN (25)
 
 #if defined ( __CC_ARM )
-    uint32_t SystemCoreClock __attribute__((used)) = __SYSTEM_CLOCK_64M;
+    uint32_t SystemCoreClock __attribute__((used)) = __SYSTEM_CLOCK;  
 #elif defined ( __ICCARM__ )
-    __root uint32_t SystemCoreClock = __SYSTEM_CLOCK_64M;
+    __root uint32_t SystemCoreClock = __SYSTEM_CLOCK;
 #elif defined ( __GNUC__ )
-    uint32_t SystemCoreClock __attribute__((used)) = __SYSTEM_CLOCK_64M;
+    uint32_t SystemCoreClock __attribute__((used)) = __SYSTEM_CLOCK;
+#endif
+
+/* Global values used used in Secure mode SystemInit. */
+#if !defined(NRF_TRUSTZONE_NONSECURE)
+    /* Global values used by UICR erase fix algorithm. */
+    static uint32_t uicr_erased_value;
+    static uint32_t uicr_new_value;
+#endif
+
+/* Errata are only handled in secure mode since they usually need access to FICR. */
+#if !defined(NRF_TRUSTZONE_NONSECURE)
+    static bool uicr_HFXOSRC_erased(void);
+    static bool uicr_HFXOCNT_erased(void);
 #endif
 
 void SystemCoreClockUpdate(void)
 {
-    SystemCoreClock = __SYSTEM_CLOCK_64M;
+    SystemCoreClock = __SYSTEM_CLOCK;
 }
 
 void SystemInit(void)
 {
-#ifdef NRF52
-    /* Workaround for Errata 16 "System: RAM may be corrupt on wakeup from CPU IDLE" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/ */
-    if (errata_16()){
-        *(volatile uint32_t *)0x4007C074 = 3131961357ul;
-    }
+    #if !defined(NRF_TRUSTZONE_NONSECURE)
+        /* Perform Secure-mode initialization routines. */
 
-    /* Workaround for Errata 31 "CLOCK: Calibration values are not correctly loaded from FICR at reset" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/ */
-    if (errata_31()){
-        *(volatile uint32_t *)0x4000053C = ((*(volatile uint32_t *)0x10000244) & 0x0000E000) >> 13;
-    }
+        /* Set all ARM SAU regions to NonSecure if TrustZone extensions are enabled.
+        * Nordic SPU should handle Secure Attribution tasks */
+        #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+          SAU->CTRL |= (1 << SAU_CTRL_ALLNS_Pos);
+        #endif
+        
+        /* Workaround for Errata 6 "POWER: SLEEPENTER and SLEEPEXIT events asserted after pin reset" found at the Errata document
+            for your device located at https://infocenter.nordicsemi.com/index.jsp  */
+        if (nrf91_errata_6()){
+            NRF_POWER_S->EVENTS_SLEEPENTER = (POWER_EVENTS_SLEEPENTER_EVENTS_SLEEPENTER_NotGenerated << POWER_EVENTS_SLEEPENTER_EVENTS_SLEEPENTER_Pos);
+            NRF_POWER_S->EVENTS_SLEEPEXIT = (POWER_EVENTS_SLEEPEXIT_EVENTS_SLEEPEXIT_NotGenerated << POWER_EVENTS_SLEEPEXIT_EVENTS_SLEEPEXIT_Pos);
+        }
 
-    /* Workaround for Errata 32 "DIF: Debug session automatically enables TracePort pins" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/ */
-    if (errata_32()){
-        CoreDebug->DEMCR &= ~CoreDebug_DEMCR_TRCENA_Msk;
-    }
+        /* Workaround for Errata 14 "REGULATORS: LDO mode at startup" found at the Errata document
+            for your device located at https://infocenter.nordicsemi.com/index.jsp  */
+        if (nrf91_errata_14()){
+            *((volatile uint32_t *)0x50004A38) = 0x01ul;
+            NRF_REGULATORS_S->DCDCEN = REGULATORS_DCDCEN_DCDCEN_Enabled << REGULATORS_DCDCEN_DCDCEN_Pos;
+        }
 
-    /* Workaround for Errata 36 "CLOCK: Some registers are not reset when expected" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/  */
-    if (errata_36()){
-        NRF_CLOCK->EVENTS_DONE = 0;
-        NRF_CLOCK->EVENTS_CTTO = 0;
-        NRF_CLOCK->CTIV = 0;
-    }
+        /* Workaround for Errata 15 "REGULATORS: LDO mode at startup" found at the Errata document
+            for your device located at https://infocenter.nordicsemi.com/index.jsp  */
+        if (nrf91_errata_15()){
+            NRF_REGULATORS_S->DCDCEN = REGULATORS_DCDCEN_DCDCEN_Enabled << REGULATORS_DCDCEN_DCDCEN_Pos;
+        }
 
-    /* Workaround for Errata 37 "RADIO: Encryption engine is slow by default" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/  */
-    if (errata_37()){
-        *(volatile uint32_t *)0x400005A0 = 0x3;
-    }
+        /* Workaround for Errata 20 "RAM content cannot be trusted upon waking up from System ON Idle or System OFF mode" found at the Errata document
+            for your device located at https://infocenter.nordicsemi.com/index.jsp  */
+        if (nrf91_errata_20()){
+            *((volatile uint32_t *)0x5003AEE4) = 0xE;
+        }
 
-    /* Workaround for Errata 57 "NFCT: NFC Modulation amplitude" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/  */
-    if (errata_57()){
-        *(volatile uint32_t *)0x40005610 = 0x00000005;
-        *(volatile uint32_t *)0x40005688 = 0x00000001;
-        *(volatile uint32_t *)0x40005618 = 0x00000000;
-        *(volatile uint32_t *)0x40005614 = 0x0000003F;
-    }
+        /* Workaround for Errata 31 "XOSC32k Startup Failure" found at the Errata document
+            for your device located at https://infocenter.nordicsemi.com/index.jsp  */
+        if (nrf91_errata_31()){
+            *((volatile uint32_t *)0x5000470Cul) = 0x0;
+            *((volatile uint32_t *)0x50004710ul) = 0x1;
+        }
 
-    /* Workaround for Errata 66 "TEMP: Linearity specification not met with default settings" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/  */
-    if (errata_66()){
-        NRF_TEMP->A0 = NRF_FICR->TEMP.A0;
-        NRF_TEMP->A1 = NRF_FICR->TEMP.A1;
-        NRF_TEMP->A2 = NRF_FICR->TEMP.A2;
-        NRF_TEMP->A3 = NRF_FICR->TEMP.A3;
-        NRF_TEMP->A4 = NRF_FICR->TEMP.A4;
-        NRF_TEMP->A5 = NRF_FICR->TEMP.A5;
-        NRF_TEMP->B0 = NRF_FICR->TEMP.B0;
-        NRF_TEMP->B1 = NRF_FICR->TEMP.B1;
-        NRF_TEMP->B2 = NRF_FICR->TEMP.B2;
-        NRF_TEMP->B3 = NRF_FICR->TEMP.B3;
-        NRF_TEMP->B4 = NRF_FICR->TEMP.B4;
-        NRF_TEMP->B5 = NRF_FICR->TEMP.B5;
-        NRF_TEMP->T0 = NRF_FICR->TEMP.T0;
-        NRF_TEMP->T1 = NRF_FICR->TEMP.T1;
-        NRF_TEMP->T2 = NRF_FICR->TEMP.T2;
-        NRF_TEMP->T3 = NRF_FICR->TEMP.T3;
-        NRF_TEMP->T4 = NRF_FICR->TEMP.T4;
-    }
+        /* Trimming of the device. Copy all the trimming values from FICR into the target addresses. Trim
+         until one ADDR is not initialized. */
+        uint32_t index = 0;
+        for (index = 0; index < 256ul && NRF_FICR_S->TRIMCNF[index].ADDR != 0xFFFFFFFFul; index++){
+          #if defined ( __ICCARM__ )
+              #pragma diag_suppress=Pa082
+          #endif
+          *(volatile uint32_t *)NRF_FICR_S->TRIMCNF[index].ADDR = NRF_FICR_S->TRIMCNF[index].DATA;
+          #if defined ( __ICCARM__ )
+              #pragma diag_default=Pa082
+          #endif
+        }
 
-    /* Workaround for Errata 108 "RAM: RAM content cannot be trusted upon waking up from System ON Idle or System OFF mode" found at the Errata document
-       for your device located at https://infocenter.nordicsemi.com/  */
-    if (errata_108()){
-        *(volatile uint32_t *)0x40000EE4 = *(volatile uint32_t *)0x10000258 & 0x0000004F;
-    }
+        /* Set UICR->HFXOSRC and UICR->HFXOCNT to working defaults if UICR was erased */
+        if (uicr_HFXOSRC_erased() || uicr_HFXOCNT_erased()) {
+          /* Wait for pending NVMC operations to finish */
+          while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
 
+          /* Enable write mode in NVMC */
+          NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Wen;
+          while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+
+          if (uicr_HFXOSRC_erased()){
+            /* Write default value to UICR->HFXOSRC */
+            uicr_erased_value = NRF_UICR_S->HFXOSRC;
+            uicr_new_value = (uicr_erased_value & ~UICR_HFXOSRC_HFXOSRC_Msk) | UICR_HFXOSRC_HFXOSRC_TCXO;
+            NRF_UICR_S->HFXOSRC = uicr_new_value;
+            while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+          }
+
+          if (uicr_HFXOCNT_erased()){
+            /* Write default value to UICR->HFXOCNT */
+            uicr_erased_value = NRF_UICR_S->HFXOCNT;
+            uicr_new_value = (uicr_erased_value & ~UICR_HFXOCNT_HFXOCNT_Msk) | 0x20;
+            NRF_UICR_S->HFXOCNT = uicr_new_value;
+            while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+          }
+
+          /* Enable read mode in NVMC */
+          NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Ren;
+          while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+
+          /* Reset to apply clock select update */
+          NVIC_SystemReset();
+        }
+
+        /* Enable Trace functionality. If ENABLE_TRACE is not defined, TRACE pins will be used as GPIOs (see Product
+           Specification to see which ones). */
+        #if defined (ENABLE_TRACE)
+            // Enable Trace And Debug peripheral
+            NRF_TAD_S->ENABLE = TAD_ENABLE_ENABLE_Msk;
+            NRF_TAD_S->CLOCKSTART = TAD_CLOCKSTART_START_Msk;
+
+            // Set up Trace pads SPU firewall
+            NRF_SPU_S->GPIOPORT[0].PERM &= ~(1 << TRACE_TRACECLK_PIN);
+            NRF_SPU_S->GPIOPORT[0].PERM &= ~(1 << TRACE_TRACEDATA0_PIN);
+            NRF_SPU_S->GPIOPORT[0].PERM &= ~(1 << TRACE_TRACEDATA1_PIN);
+            NRF_SPU_S->GPIOPORT[0].PERM &= ~(1 << TRACE_TRACEDATA2_PIN);
+            NRF_SPU_S->GPIOPORT[0].PERM &= ~(1 << TRACE_TRACEDATA3_PIN);
+
+            // Configure trace port pads
+            NRF_P0_S->PIN_CNF[TRACE_TRACECLK_PIN] =   TRACE_PIN_CNF_VALUE;
+            NRF_P0_S->PIN_CNF[TRACE_TRACEDATA0_PIN] = TRACE_PIN_CNF_VALUE;
+            NRF_P0_S->PIN_CNF[TRACE_TRACEDATA1_PIN] = TRACE_PIN_CNF_VALUE;
+            NRF_P0_S->PIN_CNF[TRACE_TRACEDATA2_PIN] = TRACE_PIN_CNF_VALUE;
+            NRF_P0_S->PIN_CNF[TRACE_TRACEDATA3_PIN] = TRACE_PIN_CNF_VALUE;
+
+            // Select trace pins
+            NRF_TAD_S->PSEL.TRACECLK   = TRACE_TRACECLK_PIN;
+            NRF_TAD_S->PSEL.TRACEDATA0 = TRACE_TRACEDATA0_PIN;
+            NRF_TAD_S->PSEL.TRACEDATA1 = TRACE_TRACEDATA1_PIN;
+            NRF_TAD_S->PSEL.TRACEDATA2 = TRACE_TRACEDATA2_PIN;
+            NRF_TAD_S->PSEL.TRACEDATA3 = TRACE_TRACEDATA3_PIN;
+
+            // Set trace port speed to 32 MHz
+            NRF_TAD_S->TRACEPORTSPEED = TAD_TRACEPORTSPEED_TRACEPORTSPEED_32MHz;
+
+            *((uint32_t *)(0xE0053000ul)) = 0x00000001ul;
+            
+            *((uint32_t *)(0xE005AFB0ul))  = 0xC5ACCE55ul;
+            *((uint32_t *)(0xE005A000ul)) &= 0xFFFFFF00ul;
+            *((uint32_t *)(0xE005A004ul))  = 0x00000009ul;
+            *((uint32_t *)(0xE005A000ul))  = 0x00000303ul;
+            *((uint32_t *)(0xE005AFB0ul))  = 0x00000000ul;
+
+            *((uint32_t *)(0xE005BFB0ul))  = 0xC5ACCE55ul;
+            *((uint32_t *)(0xE005B000ul)) &= 0xFFFFFF00ul;
+            *((uint32_t *)(0xE005B004ul))  = 0x00003000ul;
+            *((uint32_t *)(0xE005B000ul))  = 0x00000308ul;
+            *((uint32_t *)(0xE005BFB0ul))  = 0x00000000ul;
+
+            *((uint32_t *)(0xE0058FB0ul)) = 0xC5ACCE55ul;
+            *((uint32_t *)(0xE0058000ul)) = 0x00000000ul;
+            *((uint32_t *)(0xE0058004ul)) = 0x00000000ul;
+            *((uint32_t *)(0xE0058FB0ul)) = 0x00000000ul;
+
+            /* Rom table does not list ETB, or TPIU base addresses.
+             * Some debug probes may require manual configuration of these peripherals to enable tracing.
+             * ETB_BASE = 0xE0051000
+             * TPIU_BASE = 0xE0054000
+             */
+        #endif
+
+        /* Allow Non-Secure code to run FPU instructions. 
+         * If only the secure code should control FPU power state these registers should be configured accordingly in the secure application code. */
+        SCB->NSACR |= (3UL << 10);
+    #endif
+    
     /* Enable the FPU if the compiler used floating point unit instructions. __FPU_USED is a MACRO defined by the
-     * compiler. Since the FPU consumes energy, remember to disable FPU use in the compiler if floating point unit
-     * operations are not used in your code. */
+    * compiler. Since the FPU consumes energy, remember to disable FPU use in the compiler if floating point unit
+    * operations are not used in your code. */
     #if (__FPU_USED == 1)
-        SCB->CPACR |= (3UL << 20) | (3UL << 22);
-        __DSB();
-        __ISB();
+      SCB->CPACR |= (3UL << 20) | (3UL << 22);
+      __DSB();
+      __ISB();
     #endif
+    
+/*     SystemCoreClockUpdate(); */
+/* } */
 
-    /* Configure NFCT pins as GPIOs if NFCT is not to be used in your code. If CONFIG_NFCT_PINS_AS_GPIOS is not defined,
-       two GPIOs (see Product Specification to see which ones) will be reserved for NFC and will not be available as
-       normal GPIOs. */
-    #if defined (CONFIG_NFCT_PINS_AS_GPIOS)
-        if ((NRF_UICR->NFCPINS & UICR_NFCPINS_PROTECT_Msk) == (UICR_NFCPINS_PROTECT_NFC << UICR_NFCPINS_PROTECT_Pos)){
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->NFCPINS &= ~UICR_NFCPINS_PROTECT_Msk;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NVIC_SystemReset();
+
+#if !defined(NRF_TRUSTZONE_NONSECURE)
+
+    bool uicr_HFXOCNT_erased()
+    {
+        if (NRF_UICR_S->HFXOCNT == 0xFFFFFFFFul) {
+            return true;
         }
-    #endif
-
-    /* Configure GPIO pads as pPin Reset pin if Pin Reset capabilities desired. If CONFIG_GPIO_AS_PINRESET is not
-      defined, pin reset will not be available. One GPIO (see Product Specification to see which one) will then be
-      reserved for PinReset and not available as normal GPIO. */
-    #if defined (CONFIG_GPIO_AS_PINRESET)
-        if (((NRF_UICR->PSELRESET[0] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos)) ||
-            ((NRF_UICR->PSELRESET[1] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos))){
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[0] = 21;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[1] = 21;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NVIC_SystemReset();
+        return false;
+    }
+    
+    
+    bool uicr_HFXOSRC_erased()
+    {
+        if ((NRF_UICR_S->HFXOSRC & UICR_HFXOSRC_HFXOSRC_Msk) != UICR_HFXOSRC_HFXOSRC_TCXO) {
+            return true;
         }
-    #endif
-
-    /* Enable SWO trace functionality. If ENABLE_SWO is not defined, SWO pin will be used as GPIO (see Product
-       Specification to see which one). */
-    #if defined (ENABLE_SWO)
-        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-        NRF_CLOCK->TRACECONFIG |= CLOCK_TRACECONFIG_TRACEMUX_Serial << CLOCK_TRACECONFIG_TRACEMUX_Pos;
-        NRF_P0->PIN_CNF[18] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-    #endif
-
-    /* Enable Trace functionality. If ENABLE_TRACE is not defined, TRACE pins will be used as GPIOs (see Product
-       Specification to see which ones). */
-    #if defined (ENABLE_TRACE)
-        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-        NRF_CLOCK->TRACECONFIG |= CLOCK_TRACECONFIG_TRACEMUX_Parallel << CLOCK_TRACECONFIG_TRACEMUX_Pos;
-        NRF_P0->PIN_CNF[14] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-        NRF_P0->PIN_CNF[15] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-        NRF_P0->PIN_CNF[16] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-        NRF_P0->PIN_CNF[18] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-        NRF_P0->PIN_CNF[20] = (GPIO_PIN_CNF_DRIVE_H0H1 << GPIO_PIN_CNF_DRIVE_Pos) | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos) | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-    #endif
+        return false;
+    }
 #endif
 
-#ifdef NRF52810_XXAA
-    /* Workaround for Errata 31 "CLOCK: Calibration values are not correctly loaded from FICR at reset" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib */
-    if (errata_31()){
-        *(volatile uint32_t *)0x4000053C = ((*(volatile uint32_t *)0x10000244) & 0x0000E000) >> 13;
-    }
 
-    /* Workaround for Errata 36 "CLOCK: Some registers are not reset when expected" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_36()){
-        NRF_CLOCK->EVENTS_DONE = 0;
-        NRF_CLOCK->EVENTS_CTTO = 0;
-        NRF_CLOCK->CTIV = 0;
-    }
-
-    /* Workaround for Errata 66 "TEMP: Linearity specification not met with default settings" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_66()){
-        NRF_TEMP->A0 = NRF_FICR->TEMP.A0;
-        NRF_TEMP->A1 = NRF_FICR->TEMP.A1;
-        NRF_TEMP->A2 = NRF_FICR->TEMP.A2;
-        NRF_TEMP->A3 = NRF_FICR->TEMP.A3;
-        NRF_TEMP->A4 = NRF_FICR->TEMP.A4;
-        NRF_TEMP->A5 = NRF_FICR->TEMP.A5;
-        NRF_TEMP->B0 = NRF_FICR->TEMP.B0;
-        NRF_TEMP->B1 = NRF_FICR->TEMP.B1;
-        NRF_TEMP->B2 = NRF_FICR->TEMP.B2;
-        NRF_TEMP->B3 = NRF_FICR->TEMP.B3;
-        NRF_TEMP->B4 = NRF_FICR->TEMP.B4;
-        NRF_TEMP->B5 = NRF_FICR->TEMP.B5;
-        NRF_TEMP->T0 = NRF_FICR->TEMP.T0;
-        NRF_TEMP->T1 = NRF_FICR->TEMP.T1;
-        NRF_TEMP->T2 = NRF_FICR->TEMP.T2;
-        NRF_TEMP->T3 = NRF_FICR->TEMP.T3;
-        NRF_TEMP->T4 = NRF_FICR->TEMP.T4;
-    }
-
-    /* Workaround for Errata 103 "CCM: Wrong reset value of CCM MAXPACKETSIZE" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_103()){
-        NRF_CCM->MAXPACKETSIZE = 0xFBul;
-    }
-
-    /* Workaround for Errata 108 "RAM: RAM content cannot be trusted upon waking up from System ON Idle or System OFF mode" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_108()){
-        *(volatile uint32_t *)0x40000EE4 = *(volatile uint32_t *)0x10000258 & 0x0000004F;
-    }
-
-    /* Workaround for Errata 136 "System: Bits in RESETREAS are set when they should not be" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_136()){
-        if (NRF_POWER->RESETREAS & POWER_RESETREAS_RESETPIN_Msk){
-            NRF_POWER->RESETREAS =  ~POWER_RESETREAS_RESETPIN_Msk;
-        }
-    }
-
-    /* Configure GPIO pads as pPin Reset pin if Pin Reset capabilities desired. If CONFIG_GPIO_AS_PINRESET is not
-      defined, pin reset will not be available. One GPIO (see Product Specification to see which one) will then be
-      reserved for PinReset and not available as normal GPIO. */
-    #if defined (CONFIG_GPIO_AS_PINRESET)
-        if (((NRF_UICR->PSELRESET[0] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos)) ||
-            ((NRF_UICR->PSELRESET[1] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos))){
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[0] = 21;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[1] = 21;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NVIC_SystemReset();
-        }
-    #endif
-#endif
-
-#ifdef NRF52811_XXAA
-    /* Workaround for Errata 31 "CLOCK: Calibration values are not correctly loaded from FICR at reset" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib */
-    if (errata_31()){
-        *(volatile uint32_t *)0x4000053C = ((*(volatile uint32_t *)0x10000244) & 0x0000E000) >> 13;
-    }
-
-    /* Workaround for Errata 36 "CLOCK: Some registers are not reset when expected" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_36()){
-        NRF_CLOCK->EVENTS_DONE = 0;
-        NRF_CLOCK->EVENTS_CTTO = 0;
-        NRF_CLOCK->CTIV = 0;
-    }
-
-    /* Workaround for Errata 66 "TEMP: Linearity specification not met with default settings" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_66()){
-        NRF_TEMP->A0 = NRF_FICR->TEMP.A0;
-        NRF_TEMP->A1 = NRF_FICR->TEMP.A1;
-        NRF_TEMP->A2 = NRF_FICR->TEMP.A2;
-        NRF_TEMP->A3 = NRF_FICR->TEMP.A3;
-        NRF_TEMP->A4 = NRF_FICR->TEMP.A4;
-        NRF_TEMP->A5 = NRF_FICR->TEMP.A5;
-        NRF_TEMP->B0 = NRF_FICR->TEMP.B0;
-        NRF_TEMP->B1 = NRF_FICR->TEMP.B1;
-        NRF_TEMP->B2 = NRF_FICR->TEMP.B2;
-        NRF_TEMP->B3 = NRF_FICR->TEMP.B3;
-        NRF_TEMP->B4 = NRF_FICR->TEMP.B4;
-        NRF_TEMP->B5 = NRF_FICR->TEMP.B5;
-        NRF_TEMP->T0 = NRF_FICR->TEMP.T0;
-        NRF_TEMP->T1 = NRF_FICR->TEMP.T1;
-        NRF_TEMP->T2 = NRF_FICR->TEMP.T2;
-        NRF_TEMP->T3 = NRF_FICR->TEMP.T3;
-        NRF_TEMP->T4 = NRF_FICR->TEMP.T4;
-    }
-
-    /* Workaround for Errata 108 "RAM: RAM content cannot be trusted upon waking up from System ON Idle or System OFF mode" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_108()){
-        *(volatile uint32_t *)0x40000EE4 = *(volatile uint32_t *)0x10000258 & 0x0000004F;
-    }
-
-    /* Workaround for Errata 136 "System: Bits in RESETREAS are set when they should not be" found at the Errata document
-       for your device located at https://www.nordicsemi.com/DocLib  */
-    if (errata_136()){
-        if (NRF_POWER->RESETREAS & POWER_RESETREAS_RESETPIN_Msk){
-            NRF_POWER->RESETREAS =  ~POWER_RESETREAS_RESETPIN_Msk;
-        }
-    }
-
-    /* Configure GPIO pads as pPin Reset pin if Pin Reset capabilities desired. If CONFIG_GPIO_AS_PINRESET is not
-      defined, pin reset will not be available. One GPIO (see Product Specification to see which one) will then be
-      reserved for PinReset and not available as normal GPIO. */
-    #if defined (CONFIG_GPIO_AS_PINRESET)
-        #define RESET_PIN 21
-        if (((NRF_UICR->PSELRESET[0] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos)) ||
-            ((NRF_UICR->PSELRESET[1] & UICR_PSELRESET_CONNECT_Msk) != (UICR_PSELRESET_CONNECT_Connected << UICR_PSELRESET_CONNECT_Pos))){
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[0] = RESET_PIN;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_UICR->PSELRESET[1] = RESET_PIN;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos;
-            while (NRF_NVMC->READY == NVMC_READY_READY_Busy){}
-            NVIC_SystemReset();
-        }
-    #endif
-
-#endif
-
-#ifdef NRF52840_XXAA
+#ifdef NRF9160_XXAA
         /* Workaround for Errata 36 "CLOCK: Some registers are not reset when expected" found at the Errata document
            for your device located at https://infocenter.nordicsemi.com/  */
         if (errata_36()){
@@ -493,332 +398,580 @@ void SystemInit(void)
 }
 
 #ifdef NRF52
-static bool errata_16(void)
+static bool nrf91_errata_1(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_31(void)
+static bool nrf91_errata_2(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x40){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x50){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_32(void)
+static bool nrf91_errata_4(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_36(void)
+static bool nrf91_errata_6(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x40){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x50){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_37(void)
+static bool nrf91_errata_7(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_57(void)
+static bool nrf91_errata_8(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_66(void)
+static bool nrf91_errata_9(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x50){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return false;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-
-static bool errata_108(void)
+static bool nrf91_errata_10(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x40){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x50){
-            return true;
-        }
-    }
-
-    return false;
-}
-#endif
-
-#ifdef NRF52810_XXAA
-static bool errata_31(void)
-{
-    if (*(uint32_t *)0x10000130ul == 0xAul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-        if (*(uint32_t *)0x10000134ul == 0x1ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_36(void)
+static bool nrf91_errata_12(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xAul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-        if (*(uint32_t *)0x10000134ul == 0x1ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_66(void)
+static bool nrf91_errata_14(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xAul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-        if (*(uint32_t *)0x10000134ul == 0x1ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_103(void)
+static bool nrf91_errata_15(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xAul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return false;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_108(void)
+static bool nrf91_errata_16(void)
 {
-    if ((((*(uint32_t *)0xF0000FE0) & 0x000000FF) == 0x6) && (((*(uint32_t *)0xF0000FE4) & 0x0000000F) == 0x0)){
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x30){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x40){
-            return true;
-        }
-        if (((*(uint32_t *)0xF0000FE8) & 0x000000F0) == 0x50){
-            return true;
-        }
-    }
-
-    return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_136(void)
+static bool nrf91_errata_17(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xAul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-        if (*(uint32_t *)0x10000134ul == 0x1ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-#endif
-
-#ifdef NRF52811_XXAA
-static bool errata_31(void)
+static bool nrf91_errata_20(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xEul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return false;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_36(void)
+static bool nrf91_errata_21(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xEul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_66(void)
+static bool nrf91_errata_23(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xEul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_108(void)
+static bool nrf91_errata_24(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xEul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_136(void)
+static bool nrf91_errata_26(void)
 {
-    if (*(uint32_t *)0x10000130ul == 0xEul){
-        if (*(uint32_t *)0x10000134ul == 0x0ul){
-            return true;
-        }
-    }
-
-    /* Apply by default for unknown devices until errata is confirmed fixed. */
-    return true;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-#endif
-
-#ifdef NRF52840_XXAA
-static bool errata_36(void)
+static bool nrf91_errata_27(void)
 {
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return false;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-
-static bool errata_98(void)
+static bool nrf91_errata_28(void)
 {
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-
-static bool errata_103(void)
+static bool nrf91_errata_29(void)
 {
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-
-static bool errata_115(void)
+static bool nrf91_errata_30(void)
 {
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-
-static bool errata_120(void)
+static bool nrf91_errata_31(void)
 {
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
+    #ifndef NRF91_SERIES
+        return false;
+    #else
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            uint32_t var1 = *(uint32_t *)0x00FF0130ul;
+            uint32_t var2 = *(uint32_t *)0x00FF0134ul;
+        #endif
+        #if defined (NRF9160_XXAA) || defined (DEVELOP_IN_NRF9160)
+            if (var1 == 0x09)
+            {
+                switch(var2)
+                {
+                    case 0x01ul:
+                        return true;
+                    case 0x02ul:
+                        return true;
+                }
+            }
+        #endif
+        return false;
+    #endif
 }
 
-static bool errata_121(void)
-{
-	if ((*(uint32_t *)0x10000130ul == 0x8ul) &&
-			(*(uint32_t *)0x10000134ul == 0x0ul)) {
-		return true;
-	}
-
-	return false;
-}
-#endif
-
+#endif /* NRF91_ERRATAS_H */
 /*lint --flb "Leave library region" */

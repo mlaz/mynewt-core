@@ -21,6 +21,7 @@
 #include <string.h>
 #include <hal/hal_bsp.h>
 #include "nrf.h"
+#include "nrfx_config.h"
 
 #ifndef min
 #define min(a, b) ((a)<(b)?(a):(b))
@@ -29,7 +30,7 @@
 int
 hal_bsp_hw_id_len(void)
 {
-    return sizeof(NRF_FICR->DEVICEID) + sizeof(NRF_FICR->DEVICEADDR);
+    return sizeof(NRF_FICR->INFO.DEVICEID);
 }
 
 /*
@@ -39,14 +40,13 @@ hal_bsp_hw_id_len(void)
 int
 hal_bsp_hw_id(uint8_t *id, int max_len)
 {
-    int len, cnt;
+    int cnt;
 
-    cnt = min(sizeof(NRF_FICR->DEVICEID), max_len);
-    memcpy(id, (void *)NRF_FICR->DEVICEID, cnt);
-    len = cnt;
+    cnt = sizeof(NRF_FICR->INFO.DEVICEID);
+    if (cnt > max_len) {
+        return -1;
+    }
 
-    cnt = min(sizeof(NRF_FICR->DEVICEADDR), max_len - len);
-    memcpy(id + len, (void *)NRF_FICR->DEVICEADDR, cnt);
-
-    return len + cnt;
+    memcpy(id, (void *)NRF_FICR->INFO.DEVICEID, cnt);
+    return cnt;
 }

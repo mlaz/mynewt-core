@@ -18,10 +18,11 @@
  */
 
 #include "syscfg/syscfg.h"
-#include "mcu/cortex_m4.h"
+#include "mcu/cortex_m33.h"
 #include "hal/hal_system.h"
 #include "hal/hal_debug.h"
 #include "nrf.h"
+#include "nrfx_config.h"
 
 /**
  * Function called at startup. Called after BSS and .data initialized but
@@ -36,9 +37,9 @@
 void
 hal_system_init(void)
 {
-#if MYNEWT_VAL(MCU_DCDC_ENABLED)
-    NRF_POWER->DCDCEN = 1;
-#endif
+/* #if MYNEWT_VAL(MCU_DCDC_ENABLED) */
+/*     NRF_POWER->DCDCEN = 1; */
+/* #endif */
 }
 
 void
@@ -78,8 +79,8 @@ hal_system_clock_start(void)
     regval = CLOCK_LFCLKSTAT_STATE_Running << CLOCK_LFCLKSTAT_STATE_Pos;
 
 #if MYNEWT_VAL_CHOICE(MCU_LFCLK_SOURCE, LFXO)
-    regval |= CLOCK_LFCLKSTAT_SRC_Xtal << CLOCK_LFCLKSTAT_SRC_Pos;
-    clksrc = CLOCK_LFCLKSRC_SRC_Xtal;
+    regval |= CLOCK_LFCLKSTAT_SRC_LFXO << CLOCK_LFCLKSTAT_SRC_Pos;
+    clksrc = CLOCK_LFCLKSRC_SRC_LFXO;
 #elif MYNEWT_VAL_CHOICE(MCU_LFCLK_SOURCE, LFSYNTH)
     regval |= CLOCK_LFCLKSTAT_SRC_Synth << CLOCK_LFCLKSTAT_SRC_Pos;
     clksrc = CLOCK_LFCLKSRC_SRC_Synth;

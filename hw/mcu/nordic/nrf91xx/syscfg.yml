@@ -432,6 +432,8 @@ syscfg.vals.MCU_NRF52832:
     MCU_TARGET: nRF52832
 syscfg.vals.MCU_NRF52840:
     MCU_TARGET: nRF52840
+syscfg.vals.MCU_NRF9160:
+    MCU_TARGET: nRF9160
 
 syscfg.vals.XTAL_32768:
     MCU_LFCLK_SOURCE: LFXO

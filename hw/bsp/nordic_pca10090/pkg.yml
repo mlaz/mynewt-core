@@ -29,10 +29,10 @@ pkg.keywords:
     - pca10090
 
 pkg.cflags:
-    - '-DNRF9160'
+    - '-DNRF9160_XXAA'
 
 pkg.cflags.HARDFLOAT:
-    - '-mfloat-abi=hard'
+    #    - '-mfloat-abi=hard'
     - '-mfpu=fpv5-sp-d16'
 
 pkg.deps:

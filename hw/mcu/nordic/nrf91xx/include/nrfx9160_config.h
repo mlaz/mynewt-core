@@ -17,10 +17,77 @@
  * under the License.
  */
 
-#ifndef NRFX52840_CONFIG_H__
-#define NRFX52840_CONFIG_H__
+#ifndef NRFX9160_CONFIG_H__
+#define NRFX9160_CONFIG_H__
 
 #include "syscfg/syscfg.h"
+
+/* XXX: review this file, there are probably macros that are not configured. */
+#define NRF_CLOCK      NRF_CLOCK_S
+#define NRF_DPPIC      NRF_DPPIC_S
+#define NRF_EGU0       NRF_EGU0_S
+#define NRF_EGU1       NRF_EGU1_S
+#define NRF_EGU2       NRF_EGU2_S
+#define NRF_EGU3       NRF_EGU3_S
+#define NRF_EGU4       NRF_EGU4_S
+#define NRF_EGU5       NRF_EGU5_S
+#define NRF_FPU        NRF_FPU_S
+#define NRF_I2S        NRF_I2S_S
+#define NRF_IPC        NRF_IPC_S
+#define NRF_KMU        NRF_KMU_S
+#define NRF_NVMC       NRF_NVMC_S
+#define NRF_P0         NRF_P0_S
+#define NRF_PDM        NRF_PDM_S
+#define NRF_POWER      NRF_POWER_S
+#define NRF_PWM0       NRF_PWM0_S
+#define NRF_PWM1       NRF_PWM1_S
+#define NRF_PWM2       NRF_PWM2_S
+#define NRF_PWM3       NRF_PWM3_S
+#define NRF_REGULATORS NRF_REGULATORS_S
+#define NRF_RTC0       NRF_RTC0_S
+#define NRF_RTC1       NRF_RTC1_S
+#define NRF_SAADC      NRF_SAADC_S
+#define NRF_SPIM0      NRF_SPIM0_S
+#define NRF_SPIM1      NRF_SPIM1_S
+#define NRF_SPIM2      NRF_SPIM2_S
+#define NRF_SPIM3      NRF_SPIM3_S
+#define NRF_SPIS0      NRF_SPIS0_S
+#define NRF_SPIS1      NRF_SPIS1_S
+#define NRF_SPIS2      NRF_SPIS2_S
+#define NRF_SPIS3      NRF_SPIS3_S
+#define NRF_TIMER0     NRF_TIMER0_S
+#define NRF_TIMER1     NRF_TIMER1_S
+#define NRF_TIMER2     NRF_TIMER2_S
+#define NRF_TWIM0      NRF_TWIM0_S
+#define NRF_TWIM1      NRF_TWIM1_S
+#define NRF_TWIM2      NRF_TWIM2_S
+#define NRF_TWIM3      NRF_TWIM3_S
+#define NRF_TWIS0      NRF_TWIS0_S
+#define NRF_TWIS1      NRF_TWIS1_S
+#define NRF_TWIS2      NRF_TWIS2_S
+#define NRF_TWIS3      NRF_TWIS3_S
+#define NRF_UARTE0     NRF_UARTE0_S
+#define NRF_UARTE1     NRF_UARTE1_S
+#define NRF_UARTE2     NRF_UARTE2_S
+#define NRF_UARTE3     NRF_UARTE3_S
+#define NRF_VMC        NRF_VMC_S
+#define NRF_WDT        NRF_WDT_S
+
+/*
+ * The following section provides the name translation for peripherals with
+ * only one type of access available. For these peripherals, you cannot choose
+ * between secure and non-secure mapping.
+ */
+#define NRF_CRYPTOCELL NRF_CRYPTOCELL_S
+#define NRF_FICR       NRF_FICR_S
+#define NRF_GPIOTE0    NRF_GPIOTE0_S
+#define NRF_GPIOTE1    NRF_GPIOTE1_NS
+#define NRF_SPU        NRF_SPU_S
+#define NRF_UICR       NRF_UICR_S
+
+/* Fixups for GPIOTE driver. */
+#define NRF_GPIOTE        NRF_GPIOTE0_S
+#define GPIOTE_IRQHandler GPIOTE0_IRQHandler
 
 #ifndef NRFX_CLOCK_ENABLED
 #define NRFX_CLOCK_ENABLED 0
@@ -156,4 +223,4 @@
 #define NRFX_PWM3_ENABLED 1
 #endif
 
-#endif // NRFX52840_CONFIG_H__
+#endif // NRFX9160_CONFIG_H__

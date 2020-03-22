@@ -17,12 +17,12 @@
  * under the License.
  */
 
-#ifndef __MCU_CORTEX_M4_H__
-#define __MCU_CORTEX_M4_H__
+#ifndef __MCU_CORTEX_M33_H_
+#define __MCU_CORTEX_M33_H_
 
+#include "mcu/mcu.h"
 #include "nrf.h"
-#include "core_cm4.h"
-#include <syscfg/syscfg.h>
+#include "core_cm33.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,13 +33,11 @@ extern "C" {
 static inline void
 hal_debug_break(void)
 {
-#if !MYNEWT_VAL(MCU_DEBUG_IGNORE_BKPT)
     __BKPT(1);
-#endif
 }
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __MCU_CORTEX_M4_H__ */
+#endif /* __MCU_CORTEX_M33_H_ */
