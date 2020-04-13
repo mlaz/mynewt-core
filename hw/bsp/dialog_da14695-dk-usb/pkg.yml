@@ -23,7 +23,6 @@ pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
 pkg.keywords:
     - dialog
-    - da1469x
     - da14695
 
 pkg.cflags.HARDFLOAT:
@@ -32,4 +31,5 @@ pkg.cflags.HARDFLOAT:
 
 pkg.deps:
     - "@apache-mynewt-core/libc/baselibc"
+    - "@apache-mynewt-core/hw/bsp/dialog_common"
     - "@apache-mynewt-core/hw/mcu/dialog/da14695"
