@@ -109,13 +109,24 @@ if [ -z $JLINK_TARGET_HOST ]; then
     JLINK_SERVER_CMD="shell sh -c \"trap '' 2; $JLINK_GDB_SERVER -device cortex-m33 -speed 4000 -if SWD -port $PORT -singlerun $EXTRA_JTAG_CMD > $JLINK_LOG_FILE 2>&1 &\""
 fi
 
-cat > $GDB_CMD_FILE <<EOF
-set pagination off
-$JLINK_SERVER_CMD
-$JLINK_TARGET_CMD
-mon reset
-mon halt
-restore $FLASH_LOADER.bin binary 0x20000000
+if [ -n "$UART_PROTO_DEV" ]; then
+    ${CORE_PATH}/hw/bsp/dialog_common/da1469x_serial.py load ${FLASH_LOADER}.bin \
+                -u ${UART_PROTO_DEV} -r ${CORE_PATH}/hw/bsp/dialog_common/reset.sh
+    if [ $? != 0 ]; then
+        exit 1
+    fi
+fi
+
+echo "set pagination off" > $GDB_CMD_FILE
+echo "$JLINK_SERVER_CMD" >> $GDB_CMD_FILE
+echo "$JLINK_TARGET_CMD" >> $GDB_CMD_FILE
+echo "mon reset" >> $GDB_CMD_FILE
+echo "mon halt" >> $GDB_CMD_FILE
+if [ ! -n "$UART_PROTO_DEV" ]; then
+    echo "restore $FLASH_LOADER.bin binary 0x20000000" >> $GDB_CMD_FILE
+fi
+
+cat >> $GDB_CMD_FILE <<EOF
 symbol-file $FLASH_LOADER
 
 # Configure QSPI controller so it can read flash in automode (values 
