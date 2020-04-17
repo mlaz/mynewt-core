@@ -38,6 +38,102 @@ typedef enum {
 } adc_event_type_t;
 
 /**
+ *  Possible ADC resolution values.
+ */
+typedef enum {
+    ADC_RESOLUTION_8BIT = 0,
+    ADC_RESOLUTION_10BIT,
+    ADC_RESOLUTION_12BIT,
+    ADC_RESOLUTION_14BIT
+} adc_resolution_t;
+
+/**
+ *  Possible ADC oversample factor values.
+ */
+typedef enum {
+    ADC_OVERSAMPLING_DISABLED = 0,
+    ADC_OVERSAMPLE_2X,
+    ADC_OVERSAMPLE_4X,
+    ADC_OVERSAMPLE_8X,
+    ADC_OVERSAMPLE_16X,
+    ADC_OVERSAMPLE_32X,
+    ADC_OVERSAMPLE_64X,
+    ADC_OVERSAMPLE_128X,
+    ADC_OVERSAMPLE_256X
+} adc_oversampling_factor_t;
+
+/**
+ *  Possible ADC gain values.
+ */
+typedef enum {
+    ADC_GAIN1_6 = 0,
+    ADC_GAIN1_5,
+    ADC_GAIN1_4,
+    ADC_GAIN1_3,
+    ADC_GAIN1_2,
+    ADC_GAIN1,
+    ADC_GAIN2,
+    ADC_GAIN4
+} adc_gain_t;
+
+/**
+ *  Possible ADC reference values.
+ */
+typedef enum {
+    ADC_REFERENCE_INTERNAL = 0,
+    ADC_REFERENCE_VDD_DIV_4
+} adc_ref_t;
+
+/**
+ *  Acquisition time macro definitions using different units(2MSB).
+ */
+#define ADC_ACQ_TIME_MICROSECONDS  (1u)
+#define ADC_ACQ_TIME_NANOSECONDS   (2u)
+#define ADC_ACQ_TIME_TICKS         (3u)
+#define ADC_ACQ_TIME(unit, value)  (((unit) << 14) | ((value) & 0x3ff))
+#define ADC_ACQ_TIME_DEFAULT       0
+
+#define ADC_ACQ_TIME_UNIT(time)    (((time) >> 14) & 0x3)
+#define ADC_ACQ_TIME_VALUE(time)   ((time) & 0x3ff)
+
+/**
+ * ADC channel configuration data
+ *
+ * pin - The pin to be assigned to this pwm channel.
+ * differential - Whether to set differential mode.
+ * pin_n - N pin for differential mode, ignored if not in differential mode.
+ * gain - Gain configuration value.
+ * acq_time - Acquisition time.
+ * data - Driver specific data.
+ */
+struct adc_chan_cfg {
+    uint8_t pin;
+    bool differential;
+    uint8_t pin_n;
+    adc_gain_t gain;
+    adc_ref_t reference;
+    uint16_t acq_time;
+    void* data;
+};
+
+/**
+ * ADC device configuration data
+ *
+ * resolution - Device Resolution.
+ * oversample - The oversampling factor.
+ * calibrate - Whether to calibrate before starting sampling.
+ * int_prio - Driver interrupts priority.
+ * data - Driver specific device configuration data.
+ */
+struct adc_dev_cfg {
+    adc_resolution_t resolution;
+    adc_oversampling_factor_t oversample;
+    bool calibrate;
+    uint8_t int_prio;
+    void* data;
+};
+
+/**
  * Event handler for ADC events that are processed in asynchronous mode.
  *
  * @param The ADC device being processed
@@ -49,7 +145,7 @@ typedef enum {
  * @return 0 on success, non-zero error code on failure
  */
 typedef int (*adc_event_handler_func_t)(struct adc_dev *, void *,
-    adc_event_type_t, void *, int);
+                                        adc_event_type_t, void *, int);
 
 /**
  * Configure an ADC channel for this ADC device.  This is implemented
@@ -62,7 +158,7 @@ typedef int (*adc_event_handler_func_t)(struct adc_dev *, void *,
  * @return 0 on success, non-zero error code on failure.
  */
 typedef int (*adc_configure_channel_func_t)(struct adc_dev *dev, uint8_t,
-        void *);
+                                            struct adc_chan_cfg *);
 
 /**
  * Trigger a sample on the ADC device asynchronously.  This is implemented
@@ -147,7 +243,7 @@ struct adc_driver_funcs {
     adc_buf_size_func_t af_size_buffer;
 };
 
-struct adc_chan_config {
+struct adc_chan {
     uint16_t c_refmv;
     uint8_t c_res;
     uint8_t c_configured;
@@ -158,7 +254,7 @@ struct adc_dev {
     struct os_dev ad_dev;
     struct os_mutex ad_lock;
     const struct adc_driver_funcs *ad_funcs;
-    struct adc_chan_config *ad_chans;
+    struct adc_chan *ad_chans;
     int ad_chan_count;
     /* Open reference count */
     uint8_t ad_ref_cnt;
@@ -166,7 +262,7 @@ struct adc_dev {
     void *ad_event_handler_arg;
 };
 
-int adc_chan_config(struct adc_dev *, uint8_t, void *);
+int adc_chan_config(struct adc_dev *, uint8_t, struct adc_chan_cfg *);
 int adc_chan_read(struct adc_dev *, uint8_t, int *);
 int adc_event_handler_set(struct adc_dev *, adc_event_handler_func_t,
         void *);
@@ -251,7 +347,7 @@ adc_buf_release(struct adc_dev *dev, void *buf, int buf_len)
  */
 static inline int
 adc_buf_read(struct adc_dev *dev, void *buf, int buf_len, int entry,
-        int *result)
+             int *result)
 {
     return (dev->ad_funcs->af_read_buffer(dev, buf, buf_len, entry, result));
 }

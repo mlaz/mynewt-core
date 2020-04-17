@@ -32,7 +32,7 @@
  * @return 0 on success, non-zero error code on failure.
  */
 int
-adc_chan_config(struct adc_dev *dev, uint8_t cnum, void *data)
+adc_chan_config(struct adc_dev *dev, uint8_t cnum, struct adc_chan_cfg *data)
 {
     assert(dev->ad_funcs->af_configure_channel != NULL);
 

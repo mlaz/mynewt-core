@@ -36,7 +36,7 @@ static struct nrf52_saadc_stats nrf52_saadc_stats;
 
 static struct nrf52_adc_dev_cfg *init_cfg;
 static struct adc_dev *global_adc_dev;
-static struct adc_chan_config nrf52_adc_chans[SAADC_CH_NUM];
+static struct adc_chan_cfg nrf52_adc_chans[SAADC_CH_NUM];
 
 struct nrf52_adc_chan {
     nrf_saadc_input_t pin_p;
@@ -53,6 +53,7 @@ struct nrf52_saadc_dev_global {
     nrf_saadc_oversample_t oversample;
     struct nrf52_adc_chan channels[SAADC_CH_NUM];
     bool calibrate;
+    bool calibrated;
 };
 
 static struct nrf52_saadc_dev_global g_drv_instance;
@@ -186,7 +187,7 @@ nrf52_adc_open(struct os_dev *odev, uint32_t wait, void *arg)
             }
 
             switch (adc_config->oversample) {
-            case ADC_OVERSAMPLE_DISABLED:
+            case ADC_OVERSAMPLING_DISABLED:
                 g_drv_instance.oversample = NRF_SAADC_OVERSAMPLE_DISABLED;
                 break;
             case ADC_OVERSAMPLE_2X:
@@ -283,17 +284,19 @@ err:
  *
  * @param dev The ADC device to configure
  * @param cnum The channel on the ADC device to configure
- * @param cfgdata An opaque pointer to channel config, expected to be
- *                a nrf_saadc_channel_config_t
+ * @param cfgdata Channel data configuration, if NULL unconfigures the channel.
  *
  * @return 0 on success, non-zero on failure.
  */
 static int
-nrf52_adc_configure_channel(struct adc_dev *dev, uint8_t cnum, void *cfgdata)
+nrf52_adc_configure_channel(struct adc_dev *dev,
+                            uint8_t cnum,
+                            struct adc_chan_cfg *cfg)
 {
-    struct adc_chan_cfg *cfg = (struct adc_chan_cfg *) cfgdata;
     uint16_t refmv;
     nrf_saadc_resolution_t res;
+    nrf_saadc_channel_config_t *nrf_chan =
+        &g_drv_instance.channels[cnum].nrf_chan;
 
     if (cnum >= SAADC_CH_NUM) {
         return OS_EINVAL;
@@ -305,9 +308,9 @@ nrf52_adc_configure_channel(struct adc_dev *dev, uint8_t cnum, void *cfgdata)
 
     channel_unconf(cnum);
     dev->ad_chans[cnum].c_configured = 0;
-    if (!cfgdata) {
-        nrf_saadc_channel_init(NRF_SAADC, cnum,
-                               &g_drv_instance.channels[cnum].nrf_chan);
+    g_drv_instance.calibrated = false;
+    if (!cfg) {
+        nrf_saadc_channel_init(NRF_SAADC, cnum, nrf_chan);
         return 0;
     }
 
@@ -330,13 +333,11 @@ nrf52_adc_configure_channel(struct adc_dev *dev, uint8_t cnum, void *cfgdata)
 
     switch (cfg->reference) {
     case ADC_REFERENCE_INTERNAL:
-        g_drv_instance.channels[cnum].nrf_chan.reference =
-            NRF_SAADC_REFERENCE_INTERNAL;
+        nrf_chan->reference = NRF_SAADC_REFERENCE_INTERNAL;
         refmv = 600; /* 0.6V for NRF52 */
         break;
     case ADC_REFERENCE_VDD_DIV_4:
-        g_drv_instance.channels[cnum].nrf_chan.reference =
-            NRF_SAADC_REFERENCE_VDD4;
+        nrf_chan->reference = NRF_SAADC_REFERENCE_VDD4;
         refmv = init_cfg->nadc_refmv / 4;
         break;
     default:
@@ -370,16 +371,38 @@ nrf52_adc_configure_channel(struct adc_dev *dev, uint8_t cnum, void *cfgdata)
         break;
     }
 
+    switch (cfg->acq_time) {
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 3):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_3US;
+        break;
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 5):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_5US;
+        break;
+    default:
+    case ADC_ACQ_TIME_DEFAULT:
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 10):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_10US;
+        break;
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 15):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_15US;
+        break;
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 20):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_20US;
+        break;
+    case ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40):
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_40US;
+        break;
+        nrf_chan->acq_time = NRF_SAADC_ACQTIME_10US;
+    }
+
     g_drv_instance.channels[cnum].pin_p = cfg->pin;
     if (cfg->differential) {
-        g_drv_instance.channels[cnum].nrf_chan.mode =
-            NRF_SAADC_MODE_DIFFERENTIAL;
-        g_drv_instance.channels[cnum].pin_n = cfg->pin_negative;
+        nrf_chan->mode = NRF_SAADC_MODE_DIFFERENTIAL;
+        g_drv_instance.channels[cnum].pin_n = cfg->pin_n;
     }
 
     /* Init Channel's registers */
-    nrf_saadc_channel_init(NRF_SAADC, cnum,
-                           &g_drv_instance.channels[cnum].nrf_chan);
+    nrf_saadc_channel_init(NRF_SAADC, cnum, nrf_chan);
 
     /* Store these values in channel definitions, for conversions to
      * milivolts.
@@ -490,7 +513,7 @@ nrf52_adc_sample(struct adc_dev *dev)
     /* Start Sampling */
     nrf_saadc_enable(NRF_SAADC);
 
-    if (g_drv_instance.calibrate) {
+    if (g_drv_instance.calibrate && (!g_drv_instance.calibrated)) {
         nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_CALIBRATEOFFSET);
     } else {
         nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_STOP);
@@ -544,6 +567,14 @@ nrf52_adc_read_channel(struct adc_dev *dev, uint8_t cnum, int *result)
     nrf_saadc_resolution_set(NRF_SAADC, g_drv_instance.resolution);
     nrf_saadc_buffer_init(NRF_SAADC, &adc_value, 1);
     nrf_saadc_enable(NRF_SAADC);
+
+    if (g_drv_instance.calibrate && (!g_drv_instance.calibrated)) {
+        nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_CALIBRATEOFFSET);
+        while (!nrf_saadc_event_check(NRF_SAADC, NRF_SAADC_EVENT_CALIBRATEDONE));
+        nrf_saadc_event_clear(NRF_SAADC, NRF_SAADC_EVENT_CALIBRATEDONE);
+        nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_STOP);
+        g_drv_instance.calibrated = true;
+    }
 
     nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_START);
     nrf_saadc_task_trigger(NRF_SAADC, NRF_SAADC_TASK_SAMPLE);
@@ -629,6 +660,7 @@ nrf52_saadc_irq_handler(void)
     } else if (nrf_saadc_event_check(NRF_SAADC, NRF_SAADC_EVENT_CALIBRATEDONE)) {
         nrf_saadc_event_clear(NRF_SAADC, NRF_SAADC_EVENT_CALIBRATEDONE);
 
+        g_drv_instance.calibrated = true;
         global_adc_dev->ad_event_handler_func(global_adc_dev,
                                               global_adc_dev->ad_event_handler_arg,
                                               ADC_EVENT_CALIBRATED,
