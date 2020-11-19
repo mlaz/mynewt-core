@@ -38,7 +38,7 @@ echo "Debugging" $FILE_NAME
 # Exit openocd when gdb detaches.
 #
 set -m
-pyocd-gdbserver &
+pyocd gdbserver &
 set +m
 
 echo "target remote localhost:3333" > $GDB_CMD_FILE
